@@ -1,0 +1,2358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Research Plan Flex v3.0 — 智能科研项目与实验管理系统</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', '"Fira Code"', 'Consolas', 'monospace']
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 自定义滚动条与微交互细节 */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: #f8fafc;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .card-base {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.85rem;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      scroll-margin-top: 4.5rem;
+    }
+    .card-base:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+    }
+
+    /* 侧边栏点击定位时的聚光灯高亮动画 */
+    @keyframes spotlight-ring {
+      0% {
+        box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.45), 0 10px 25px -5px rgba(79, 70, 229, 0.15);
+        border-color: #4f46e5;
+        transform: translateY(-2px);
+      }
+      70% {
+        box-shadow: 0 0 0 8px rgba(79, 70, 229, 0), 0 10px 25px -5px rgba(79, 70, 229, 0.1);
+        border-color: #6366f1;
+      }
+      100% {
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+        border-color: #e2e8f0;
+        transform: translateY(0);
+      }
+    }
+    .section-spotlight {
+      animation: spotlight-ring 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .glass-header {
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .checkbox-custom {
+      appearance: none;
+      width: 1.15rem;
+      height: 1.15rem;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 0.35rem;
+      display: inline-grid;
+      place-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background-color: #fff;
+    }
+    .checkbox-custom:checked {
+      background-color: #4f46e5;
+      border-color: #4f46e5;
+    }
+    .checkbox-custom:checked::before {
+      content: "";
+      width: 0.55rem;
+      height: 0.32rem;
+      border-left: 2px solid #ffffff;
+      border-bottom: 2px solid #ffffff;
+      transform: rotate(-45deg) translate(1px, -1px);
+    }
+
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 2.2s infinite ease-in-out;
+    }
+
+    /* 侧边栏折叠状态样式 */
+    aside.sidebar-collapsed {
+      width: 4.25rem !important;
+    }
+    aside.sidebar-collapsed .sidebar-label,
+    aside.sidebar-collapsed .sidebar-badge,
+    aside.sidebar-collapsed .sidebar-group-title,
+    aside.sidebar-collapsed .sidebar-footer-card {
+      display: none !important;
+    }
+    aside.sidebar-collapsed .sidebar-nav-btn {
+      justify-content: center !important;
+      padding-left: 0.5rem !important;
+      padding-right: 0.5rem !important;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-brand-100 selection:text-brand-700">
+
+  <!-- ==================== 顶部全局导航与双模持久化状态栏 ==================== -->
+  <header class="glass-header sticky top-0 z-40 border-b border-slate-200/80 px-4 lg:px-5 py-2.5">
+    <div class="max-w-[1920px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- 左侧：侧边栏折叠开关 + 品牌与系统基准时间 -->
+      <div class="flex items-center gap-2.5">
+        <button id="btnToggleSidebar" type="button" class="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-brand-600 hover:border-brand-300 transition shadow-sm" title="展开/收起快速导航侧边栏 (快捷键 [ )">
+          <i data-lucide="panel-left" class="w-4 h-4"></i>
+        </button>
+
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-indigo-700 flex items-center justify-center text-white shadow-sm">
+          <i data-lucide="microscope" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-slate-900 tracking-tight text-base">Research Plan Flex</h1>
+            <span class="text-[11px] font-mono font-semibold px-1.5 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200/60">v3.0 Sidebar Pro</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-slate-500">
+            <span id="liveCurrentDateDisplay" class="font-medium text-slate-600">加载系统日期中...</span>
+            <span>·</span>
+            <span id="storageStatusBadge" class="inline-flex items-center gap-1 text-emerald-600 font-medium">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              LocalStorage 实时同步中
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中部：全局科研统计指标胶囊 -->
+      <div class="hidden 2xl:flex items-center gap-2 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60 text-xs">
+        <div class="px-3 py-1 rounded-lg bg-white shadow-sm flex items-center gap-2">
+          <span class="text-slate-500">在研课题</span>
+          <span id="statProjectsCount" class="font-bold text-slate-800 font-mono text-sm">0</span>
+        </div>
+        <div class="px-3 py-1 rounded-lg flex items-center gap-2">
+          <span class="text-slate-500">今日待办实验</span>
+          <span id="statTodayPending" class="font-bold text-brand-600 font-mono text-sm">0</span>
+        </div>
+        <div class="px-3 py-1 rounded-lg flex items-center gap-2">
+          <span class="text-slate-500">逾期未闭环</span>
+          <span id="statOverdueCount" class="font-bold text-rose-600 font-mono text-sm">0</span>
+        </div>
+        <div class="px-3 py-1 rounded-lg flex items-center gap-2">
+          <span class="text-slate-500">矩阵实验完成率</span>
+          <span id="statCompletionRate" class="font-bold text-emerald-600 font-mono text-sm">0%</span>
+        </div>
+      </div>
+
+      <!-- 右侧：双模持久化操作组（直连硬盘 / 导入导出 JSON / 导出 Markdown 周报） -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- 焦点工作日期切换器 -->
+        <div class="flex items-center bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-sm text-xs">
+          <i data-lucide="calendar-clock" class="w-3.5 h-3.5 text-slate-400 mr-1.5"></i>
+          <span class="text-slate-500 mr-1">工作基准日:</span>
+          <input type="date" id="workingDatePicker" class="font-mono font-medium text-slate-800 focus:outline-none bg-transparent cursor-pointer" title="切换工作日期以查看或补写当日计划与实验日志" />
+          <button id="btnResetToRealToday" class="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-brand-50 hover:text-brand-600 text-slate-600 font-medium transition" title="立即回到系统真实今日">
+            今日
+          </button>
+        </div>
+
+        <!-- 本地文件直连 (File System Access API) -->
+        <button id="btnBindLocalFile" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-sm" title="使用浏览器 File System Access API 绑定本地 JSON 文件，每次修改自动覆写到本地硬盘">
+          <i data-lucide="hard-drive" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span id="bindFileBtnText">直连本地文件</span>
+        </button>
+
+        <!-- 导入 JSON -->
+        <label class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-sm cursor-pointer">
+          <i data-lucide="upload" class="w-3.5 h-3.5 text-slate-600"></i>
+          <span>导入数据</span>
+          <input type="file" id="inputImportJson" accept=".json,.txt" class="hidden" />
+        </label>
+
+        <!-- 导出 JSON -->
+        <button id="btnExportJson" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition shadow-sm">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-slate-600"></i>
+          <span>备份 JSON</span>
+        </button>
+
+        <!-- 导出 Markdown 汇报文档 -->
+        <button id="btnExportMarkdown" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition shadow-sm">
+          <i data-lucide="file-text" class="w-3.5 h-3.5 text-brand-300"></i>
+          <span>导出 MD 汇报</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== 主体容器：左侧快速定位侧边栏 + 右侧科研工作台 ==================== -->
+  <div class="flex-1 flex max-w-[1920px] w-full mx-auto relative">
+
+    <!-- ==================== 智能板块快速导航侧边栏 (Smart Sidebar) ==================== -->
+    <aside id="appSidebar" class="w-60 shrink-0 bg-white/95 border-r border-slate-200/80 sticky top-[57px] h-[calc(100vh-57px)] flex flex-col justify-between p-3 transition-all duration-200 z-30 overflow-y-auto select-none">
+      
+      <div class="space-y-4">
+        <!-- 1. 视图布局模式切换（全景三栏 vs 单板块专注视图） -->
+        <div class="bg-slate-100/90 p-1 rounded-xl border border-slate-200/60">
+          <div class="grid grid-cols-2 gap-1 text-[11px] font-semibold">
+            <button type="button" id="btnLayoutPanorama" onclick="setWorkspaceDisplayMode('panorama')" class="sidebar-nav-btn py-1.5 px-2 rounded-lg bg-white text-slate-900 shadow-sm flex items-center justify-center gap-1.5 transition" title="全景三栏视图：同时展示所有板块，点击导航平滑定位高亮">
+              <i data-lucide="layout-grid" class="w-3.5 h-3.5 text-brand-600 shrink-0"></i>
+              <span class="sidebar-label">全景工作台</span>
+            </button>
+            <button type="button" id="btnLayoutFocus" onclick="setWorkspaceDisplayMode('focus')" class="sidebar-nav-btn py-1.5 px-2 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition" title="单板块专注模式：仅放大显示当前点击的板块，沉浸式科研">
+              <i data-lucide="maximize-2" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+              <span class="sidebar-label">沉浸专注</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. 核心科研板块快速定位菜单 -->
+        <div>
+          <div class="sidebar-group-title px-2 mb-1.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <span>核心板块快速定位</span>
+            <span class="text-[10px] font-normal">点击直达</span>
+          </div>
+
+          <nav class="space-y-1">
+            <!-- 板块 1: 科研课题立项池 -->
+            <button type="button" data-nav="projects" onclick="navigateToSection('projects')" class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium bg-brand-50 text-brand-700 transition group">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <i data-lucide="folder-kanban" class="w-4 h-4 text-brand-600 shrink-0"></i>
+                <span class="sidebar-label truncate">科研课题与项目池</span>
+              </div>
+              <span id="navBadgeProjects" class="sidebar-badge text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-white text-slate-700 border border-slate-200/80">0</span>
+            </button>
+
+            <!-- 板块 2: 随手记科研灵感池 -->
+            <button type="button" data-nav="ideas" onclick="navigateToSection('ideas')" class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 transition group">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <i data-lucide="lightbulb" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                <span class="sidebar-label truncate">随手记科研灵感池</span>
+              </div>
+              <span id="navBadgeIdeas" class="sidebar-badge text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200/60">0</span>
+            </button>
+
+            <!-- 板块 3: 单项实验计划拆解录入 -->
+            <button type="button" data-nav="plan-single" onclick="navigateToSection('plan-single')" class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 transition group">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <i data-lucide="flask-conical" class="w-4 h-4 text-indigo-600 shrink-0"></i>
+                <span class="sidebar-label truncate">实验计划拆解录入</span>
+              </div>
+              <span class="sidebar-badge text-[10px] text-slate-400 font-mono">+新建</span>
+            </button>
+
+            <!-- 板块 4: 批量生成模块矩阵池 -->
+            <button type="button" data-nav="plan-matrix" onclick="navigateToSection('plan-matrix')" class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 transition group">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <i data-lucide="grid" class="w-4 h-4 text-violet-600 shrink-0"></i>
+                <span class="sidebar-label truncate">批量模块矩阵生成</span>
+              </div>
+              <span class="sidebar-badge text-[10px] font-mono px-1.5 py-0.5 rounded bg-violet-50 text-violet-700">正交</span>
+            </button>
+
+            <!-- 板块 5: 实验计划与矩阵总池 -->
+            <button type="button" data-nav="plan-pool" onclick="navigateToSection('plan-pool')" class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 transition group">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <i data-lucide="table-2" class="w-4 h-4 text-slate-700 shrink-0"></i>
+                <span class="sidebar-label truncate">实验计划与矩阵总池</span>
+              </div>
+              <span id="navBadgePlanPool" class="sidebar-badge text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700">0</span>
+            </button>
+
+            <!-- 板块 6: 每日时间轴打卡与逾期补做 -->
+            <button type="button" data-nav="timeline" onclick="navigateToSection('timeline')" class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 transition group">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                <span class="sidebar-label truncate">每日打卡 & 逾期补做</span>
+              </div>
+              <div class="sidebar-badge flex items-center gap-1">
+                <span id="navBadgeOverdueDot" class="hidden px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 font-mono text-[10px] font-bold" title="存在逾期未闭环实验">0逾期</span>
+                <span id="navBadgeToday" class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60">0/0</span>
+              </div>
+            </button>
+
+            <!-- 板块 7: 每日科研实验日志 -->
+            <button type="button" data-nav="diary" onclick="navigateToSection('diary')" class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 transition group">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <i data-lucide="book-open-check" class="w-4 h-4 text-sky-600 shrink-0"></i>
+                <span class="sidebar-label truncate">每日科研实验日记</span>
+              </div>
+              <span id="navBadgeDiary" class="sidebar-badge text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700">0篇</span>
+            </button>
+
+            <!-- 板块 8: 自然周组会周报生成 -->
+            <button type="button" data-nav="weekly" onclick="navigateToSection('weekly')" class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 transition group">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-brand-600 shrink-0"></i>
+                <span class="sidebar-label truncate">自然周组会周报引擎</span>
+              </div>
+              <span class="sidebar-badge text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-50 text-brand-700">MD</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- 3. 侧边栏内嵌：在研课题快速过滤树 -->
+        <div class="pt-3 border-t border-slate-100">
+          <div class="sidebar-group-title px-2 mb-1.5 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            <span>课题视角快速过滤</span>
+          </div>
+          <div id="sidebarProjectFilterTree" class="space-y-1 max-h-48 overflow-y-auto pr-0.5">
+            <!-- 动态渲染全部课题及单课题快速切换按钮 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 侧边栏底部：当前科研推进状态微卡片 -->
+      <div class="sidebar-footer-card mt-4 p-3 rounded-xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white shadow-sm">
+        <div class="flex items-center justify-between text-[11px] text-slate-300 mb-1">
+          <span>全局实验闭环率</span>
+          <span id="sidebarFooterRate" class="font-mono font-bold text-emerald-400">0%</span>
+        </div>
+        <div class="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden mb-2">
+          <div id="sidebarFooterBar" class="h-full bg-gradient-to-r from-brand-400 to-emerald-400 transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div class="flex items-center justify-between text-[10px] text-slate-400">
+          <span>快捷键 <kbd class="px-1 py-0.5 bg-slate-800 rounded text-slate-200 font-mono">[</kbd> 折叠栏</span>
+          <button type="button" onclick="setWorkspaceDisplayMode('panorama'); window.scrollTo({top:0, behavior:'smooth'})" class="text-brand-300 hover:underline">回到顶部 ↑</button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ==================== 主工作台：支持「全景三栏」与「沉浸单板块」平滑切换 ==================== -->
+    <main id="workspaceGrid" class="flex-1 min-w-0 px-4 lg:px-6 py-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+      <!-- ==================== 左栏 (3列)：科研项目课题管理 + 随手记科研灵感池 ==================== -->
+      <section id="colLeft" class="lg:col-span-3 flex flex-col gap-5">
+        
+        <!-- 1. 科研项目/课题管理卡片 -->
+        <div id="sec-projects" class="card-base p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="folder-kanban" class="w-4 h-4 text-brand-600"></i>
+              <h2 class="font-bold text-sm text-slate-900">科研课题与项目池</h2>
+            </div>
+            <button id="btnShowAllProjects" class="text-xs font-medium px-2 py-0.5 rounded bg-brand-50 text-brand-700 hover:bg-brand-100 transition">
+              全部课题视图
+            </button>
+          </div>
+
+          <!-- 直观内嵌：新建/编辑科研项目表单 -->
+          <form id="formProject" class="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3 mb-3 space-y-2.5">
+            <input type="hidden" id="projectEditId" value="" />
+            <div class="flex items-center justify-between">
+              <span id="projectFormTitle" class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">快速立项 / 新建课题</span>
+              <button type="button" id="btnCancelProjectEdit" class="hidden text-[11px] text-rose-600 hover:underline">取消编辑</button>
+            </div>
+            <div>
+              <input type="text" id="projectNameInput" required placeholder="输入课题名称 (如: CVPR 跨模态蒸馏)..." class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="projectVenueInput" placeholder="目标顶会/期刊 (如 NeurIPS)" class="px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500" />
+              <select id="projectStatusInput" class="px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-brand-500">
+                <option value="exploring">🔍 探索调研</option>
+                <option value="experimenting" selected>⚡ 实验攻坚</option>
+                <option value="writing">✍️ 论文撰写</option>
+                <option value="rebuttal">🛡️ Rebuttal/审稿</option>
+                <option value="accepted">🎉 已录用/结题</option>
+              </select>
+            </div>
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5 text-xs text-slate-500 flex-1">
+                <span class="shrink-0">截稿日:</span>
+                <input type="date" id="projectDeadlineInput" class="w-full px-2 py-1 text-xs bg-white border border-slate-200 rounded-lg font-mono focus:outline-none focus:border-brand-500" />
+              </div>
+              <button type="submit" id="btnSubmitProject" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium transition flex items-center gap-1 shrink-0 shadow-sm">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>保存课题</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- 项目列表容器 -->
+          <div id="projectListContainer" class="space-y-2 max-h-[340px] overflow-y-auto pr-0.5">
+            <!-- 动态渲染 -->
+          </div>
+        </div>
+
+        <!-- 2. 随手记科研灵感池 (Idea & Literature Spark Pool) -->
+        <div id="sec-ideas" class="card-base p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="lightbulb" class="w-4 h-4 text-amber-500"></i>
+              <h2 class="font-bold text-sm text-slate-900">随手记科研灵感池</h2>
+            </div>
+            <span id="ideaCountBadge" class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200/60">0 条灵感</span>
+          </div>
+
+          <!-- 直观内嵌：新增科研灵感表单 -->
+          <form id="formIdea" class="space-y-2 mb-3">
+            <textarea id="ideaContentInput" rows="2" required placeholder="记录突发 Idea、论文阅读启发、异常实验现象猜想..." class="w-full px-2.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100 resize-none"></textarea>
+            <div class="flex items-center gap-2">
+              <select id="ideaProjectSelect" class="flex-1 px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-500">
+                <!-- 动态注入课题选项 -->
+              </select>
+              <input type="text" id="ideaTagInput" placeholder="#标签 (如 Loss设计)" class="w-28 px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-500" />
+              <button type="submit" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium transition shrink-0 shadow-sm">
+                记灵感
+              </button>
+            </div>
+          </form>
+
+          <!-- 灵感列表容器 (支持一键转化为实验计划) -->
+          <div id="ideaListContainer" class="space-y-2.5 max-h-[380px] overflow-y-auto pr-0.5">
+            <!-- 动态渲染 -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ==================== 中栏 (5列)：实验计划拆解 + 批量生成模块矩阵池 ==================== -->
+      <section id="colCenter" class="lg:col-span-5 flex flex-col gap-5">
+
+        <!-- 中栏顶部：模式切换器（单次实验计划添加 vs 批量生成实验模块矩阵池） -->
+        <div id="sec-plan-creator" class="card-base p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2">
+              <i data-lucide="flask-conical" class="w-4 h-4 text-brand-600"></i>
+              <h2 class="font-bold text-sm text-slate-900">实验计划拆解与模块矩阵生成</h2>
+            </div>
+            <!-- 直观 Tab 切换：常规添加 vs 矩阵批量生成 -->
+            <div class="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs">
+              <button type="button" id="tabBtnSinglePlan" class="px-2.5 py-1 rounded-md font-medium bg-white text-slate-900 shadow-sm transition">
+                + 单项实验计划
+              </button>
+              <button type="button" id="tabBtnMatrixGenerator" class="px-2.5 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1">
+                <i data-lucide="grid" class="w-3 h-3 text-brand-600"></i>
+                <span>批量生成模块矩阵池</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 面板 A：单项实验计划直接录入表单 -->
+          <form id="formSinglePlan" class="space-y-3">
+            <input type="hidden" id="planEditId" value="" />
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-medium text-slate-500 mb-1">实验标题 / 核心假设验证</label>
+                <input type="text" id="planTitleInput" required placeholder="例如：在 CIFAR-100 上验证温度系数 τ=0.07 的对比损失表现" class="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-500 mb-1">所属科研课题</label>
+                <select id="planProjectSelect" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-brand-500">
+                  <!-- 动态注入 -->
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-medium text-slate-500 mb-1">计划执行日期</label>
+                <input type="date" id="planDateInput" required class="w-full px-2.5 py-1.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-brand-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-500 mb-1">实验类型</label>
+                <select id="planCategoryInput" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-brand-500">
+                  <option value="Baseline复现">Baseline复现</option>
+                  <option value="主实验对比" selected>主实验对比</option>
+                  <option value="消融实验(Ablation)">消融实验(Ablation)</option>
+                  <option value="超参搜索">超参搜索</option>
+                  <option value="数据预处理/工程">数据预处理/工程</option>
+                  <option value="论文图表绘制">论文图表绘制</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-500 mb-1">优先级</label>
+                <select id="planPriorityInput" class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-brand-500">
+                  <option value="P0">🔥 P0 关键阻塞</option>
+                  <option value="P1" selected>⚡ P1 核心实验</option>
+                  <option value="P2">📌 P2 常规推进</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-slate-500 mb-1">实验指标 / 备注结果</label>
+                <input type="text" id="planMetricInput" placeholder="如 Acc: 84.2% / GPU:2卡" class="w-full px-2.5 py-1.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-brand-500" />
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <span id="planEditHint" class="text-[11px] text-slate-400">支持将实验直接排期到指定日期，自动进入右侧时间轴闭环</span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="btnCancelPlanEdit" class="hidden px-2.5 py-1.5 rounded-lg text-xs text-slate-600 hover:bg-slate-100">取消编辑</button>
+                <button type="submit" id="btnSubmitPlan" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition shadow-sm flex items-center gap-1.5">
+                  <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                  <span id="btnSubmitPlanText">加入实验计划池</span>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <!-- 面板 B：批量生成模块矩阵池 (Cartesian Product Ablation / Hyperparam Matrix Generator) -->
+          <div id="panelMatrixGenerator" class="hidden space-y-3 bg-indigo-50/50 border border-indigo-100 rounded-xl p-3.5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                  <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600"></i>
+                  <span>笛卡尔积实验模块矩阵生成器 (Ablation & Grid Matrix)</span>
+                </h3>
+                <p class="text-[11px] text-indigo-700/80 mt-0.5">输入逗号分隔的多个实验维度（数据集 × 骨干网络 × 损失函数/超参），一键正交组合生成完整实验矩阵池。</p>
+              </div>
+              <span id="matrixPreviewCount" class="text-xs font-mono font-bold px-2 py-1 rounded-lg bg-indigo-600 text-white shadow-sm">预计生成 0 组</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-semibold text-indigo-900 mb-1">维度 A：数据集 / 场景 (逗号分隔)</label>
+                <input type="text" id="matrixDimA" value="ImageNet-1K, COCO-Det" placeholder="如: CIFAR-10, CIFAR-100" class="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-indigo-900 mb-1">维度 B：模型架构 / 模块变体</label>
+                <input type="text" id="matrixDimB" value="ResNet50+Ours, ViT-B/16+Ours" placeholder="如: Baseline, +Attention, +Adapter" class="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-indigo-900 mb-1">维度 C：超参 / 消融设置</label>
+                <input type="text" id="matrixDimC" value="lr=1e-4, lr=5e-4" placeholder="如: w/o Warmup, Full Loss" class="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono focus:outline-none focus:border-indigo-500" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-1">
+              <div>
+                <label class="block text-[11px] font-medium text-indigo-900 mb-1">归属课题</label>
+                <select id="matrixProjectSelect" class="w-full px-2 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none"></select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-indigo-900 mb-1">矩阵批次名称</label>
+                <input type="text" id="matrixBatchName" placeholder="如: Table2消融矩阵" value="主实验消融矩阵" class="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-indigo-900 mb-1">起始排期日</label>
+                <input type="date" id="matrixStartDate" class="w-full px-2 py-1.5 text-xs font-mono bg-white border border-indigo-200 rounded-lg focus:outline-none" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-medium text-indigo-900 mb-1">每日自动排期上限</label>
+                <select id="matrixDailyQuota" class="w-full px-2 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg focus:outline-none">
+                  <option value="999">全部排入起始日</option>
+                  <option value="2">每天自动排 2 组实验</option>
+                  <option value="3" selected>每天自动排 3 组实验</option>
+                  <option value="4">每天自动排 4 组实验</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <div id="matrixPreviewTags" class="flex items-center gap-1 flex-wrap text-[11px] text-indigo-700 max-w-[70%] truncate">
+                <!-- 实时预览正交组合样本 -->
+              </div>
+              <button type="button" id="btnGenerateMatrix" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5 shrink-0">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                <span>一键生成实验矩阵</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 中栏下部：实验计划与模块矩阵总池（支持多维过滤、实验指标回填、状态流转） -->
+        <div id="sec-plan-pool" class="card-base p-4 flex-1 flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="table-2" class="w-4 h-4 text-slate-700"></i>
+              <h2 class="font-bold text-sm text-slate-900">实验计划与模块矩阵池</h2>
+              <span id="currentProjectFilterBadge" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">全部课题</span>
+            </div>
+
+            <!-- 过滤与搜索栏 -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <select id="filterPlanStatus" class="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none">
+                <option value="all">全部状态</option>
+                <option value="pending">⏳ 待执行 / 进行中</option>
+                <option value="completed">✅ 已完成闭环</option>
+                <option value="overdue">⚠️ 逾期未完成</option>
+              </select>
+              <select id="filterPlanBatch" class="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none">
+                <option value="all">全部矩阵批次</option>
+              </select>
+              <div class="relative">
+                <input type="text" id="searchPlanInput" placeholder="搜索实验/超参/指标..." class="pl-7 pr-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg w-36 focus:w-44 transition-all focus:bg-white focus:outline-none focus:border-brand-500" />
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1.5"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- 实验矩阵进度条 -->
+          <div class="bg-slate-50 border border-slate-200/70 rounded-xl p-2.5 mb-3 flex items-center justify-between gap-3">
+            <div class="flex-1">
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="text-slate-600 font-medium">当前筛选视图实验推进度</span>
+                <span id="filteredProgressText" class="font-mono font-bold text-slate-800">0 / 0 (0%)</span>
+              </div>
+              <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div id="filteredProgressBar" class="h-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all duration-300" style="width: 0%"></div>
+              </div>
+            </div>
+            <button id="btnBatchPostponeOverdue" class="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-medium transition shrink-0 flex items-center gap-1" title="将所有逾期未完成的实验一键顺延至今日补做">
+              <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
+              <span>逾期一键顺延今日</span>
+            </button>
+          </div>
+
+          <!-- 实验计划列表容器 -->
+          <div id="planPoolContainer" class="space-y-2.5 max-h-[600px] overflow-y-auto pr-0.5">
+            <!-- 动态渲染 -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ==================== 右栏 (4列)：每日时间轴打卡与逾期补做 + 每日实验日记与自然周组会周报 ==================== -->
+      <section id="colRight" class="lg:col-span-4 flex flex-col gap-5">
+
+        <!-- 1. 每日时间轴打卡与逾期补做工作台 -->
+        <div id="sec-timeline" class="card-base p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+              <div>
+                <h2 class="font-bold text-sm text-slate-900">每日时间轴打卡 & 逾期补做</h2>
+              </div>
+            </div>
+            <span id="timelineDateBadge" class="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-200/60">
+              <!-- 动态显示当前工作基准日 -->
+            </span>
+          </div>
+
+          <!-- 逾期未闭环警示与一键补做区 -->
+          <div id="overdueAlertBox" class="hidden mb-3 bg-rose-50/90 border border-rose-200 rounded-xl p-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-1.5 text-xs font-bold text-rose-800">
+                <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 animate-pulse-subtle"></i>
+                <span>历史逾期未闭环实验 (<span id="overdueBoxCount">0</span> 项)</span>
+              </div>
+              <span class="text-[11px] text-rose-600">支持直接补打卡或移至今日</span>
+            </div>
+            <div id="overdueTimelineList" class="space-y-1.5 max-h-[170px] overflow-y-auto pr-0.5">
+              <!-- 动态渲染逾期实验项 -->
+            </div>
+          </div>
+
+          <!-- 当日排期实验时间轴列表 -->
+          <div class="mb-1 flex items-center justify-between text-xs text-slate-500">
+            <span>当日计划实验时间轴</span>
+            <span id="todayTimelineSummary" class="font-mono">已完成 0/0</span>
+          </div>
+          <div id="todayTimelineList" class="space-y-2 max-h-[260px] overflow-y-auto pr-0.5">
+            <!-- 动态渲染当日任务 -->
+          </div>
+        </div>
+
+        <!-- 2. 每日实验日志 & 自然周组会周报双视图卡片 -->
+        <div id="sec-diary-weekly" class="card-base p-4 flex-1 flex flex-col">
+          <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2">
+              <i data-lucide="book-open-check" class="w-4 h-4 text-brand-600"></i>
+              <h2 class="font-bold text-sm text-slate-900">科研实验日志 & 组会周报引擎</h2>
+            </div>
+            <div class="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs">
+              <button type="button" id="tabBtnDailyLog" class="px-2.5 py-1 rounded-md font-medium bg-white text-slate-900 shadow-sm transition">
+                📝 每日实验日志
+              </button>
+              <button type="button" id="tabBtnWeeklyReport" class="px-2.5 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 transition">
+                📊 自然周组会周报
+              </button>
+            </div>
+          </div>
+
+          <!-- 视图 1：每日实验日记编写（自动实时保存） -->
+          <div id="panelDailyLog" class="space-y-3">
+            <div class="flex items-center justify-between bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200/70 text-xs">
+              <span class="text-slate-600">当前日志日期：<strong id="diaryCurrentDateLabel" class="font-mono text-slate-900"></strong></span>
+              <button type="button" id="btnAutoFillDiaryFromTasks" class="text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1" title="将今日已打卡完成的实验结果一键追加到今日实验观察中">
+                <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>
+                <span>一键同步今日打卡实验</span>
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">🔬 实验现象、指标分析与核心进展 (Key Observations & Metrics)</label>
+              <textarea id="diaryProgressInput" rows="4" placeholder="记录今日跑出的关键实验指标、Loss曲线变化、与Baseline对比结论..." class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100 leading-relaxed"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">🐞 踩坑记录、Bug 排查与异常分析 (Blockers & Debugging)</label>
+              <textarea id="diaryBlockersInput" rows="2" placeholder="例如：OOM 显存溢出原因定位、梯度爆炸、某数据集标注噪声问题..." class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100 leading-relaxed"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">🚀 明日/下一步实验推进计划 (Next Step Hypothesis)</label>
+              <textarea id="diaryNextStepsInput" rows="2" placeholder="下一步待验证的消融模块或论文撰写小节..." class="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 leading-relaxed"></textarea>
+            </div>
+
+            <div class="flex items-center justify-between pt-1 text-[11px] text-slate-400">
+              <span id="diarySaveStatus">输入内容即刻毫秒级自动保存至本地</span>
+              <span>支持历史日志检索与周报自动聚合</span>
+            </div>
+
+            <!-- 最近实验日志快速时间轴回溯 -->
+            <div class="pt-2 border-t border-slate-100">
+              <div class="text-xs font-semibold text-slate-700 mb-2 flex items-center justify-between">
+                <span>近期实验日记速览 (点击可切换回溯)</span>
+                <span id="recentDiaryCount" class="text-[11px] font-mono text-slate-400">0 篇记录</span>
+              </div>
+              <div id="recentDiaryList" class="space-y-1.5 max-h-[160px] overflow-y-auto pr-0.5">
+                <!-- 动态渲染近期实验日志条目 -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 视图 2：自然周组会周报自动生成器 (Monday - Sunday) -->
+          <div id="panelWeeklyReport" class="hidden space-y-3 flex-1 flex flex-col">
+            <div class="bg-brand-50/70 border border-brand-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="text-xs font-bold text-brand-950 flex items-center gap-1.5">
+                  <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-brand-600"></i>
+                  <span>自然周范围 (周一至周日)：</span>
+                </div>
+                <div id="weeklyRangeLabel" class="text-xs font-mono font-semibold text-brand-700 mt-0.5">
+                  <!-- 动态渲染自然周起止日期 -->
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" id="btnRefreshWeeklyMd" class="px-2.5 py-1 rounded-lg bg-white border border-brand-200 text-brand-700 hover:bg-brand-100 text-xs font-medium transition">
+                  重新聚合
+                </button>
+                <button type="button" id="btnCopyWeeklyMd" class="px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium transition flex items-center gap-1 shadow-sm">
+                  <i data-lucide="copy" class="w-3 h-3"></i>
+                  <span>复制 Markdown</span>
+                </button>
+              </div>
+            </div>
+
+            <textarea id="weeklyReportMarkdownOutput" rows="16" class="w-full flex-1 p-3 text-xs font-mono bg-slate-900 text-slate-100 rounded-xl border border-slate-700 focus:outline-none leading-relaxed" readonly></textarea>
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- 底部轻量提示 Toast -->
+  <div id="toastNotification" class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-200 translate-y-2 opacity-0">
+    <div class="bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-lg border border-slate-700 flex items-center gap-2 text-xs font-medium">
+      <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+      <span id="toastMessageText">操作成功</span>
+    </div>
+  </div>
+  <!-- ==================== 第一段代码到此结束，第二段将从 <script> 标签开始无缝接续 ==================== -->
+    <!-- ==================== 第二段代码开始：核心业务逻辑与侧边栏导航引擎脚本 ==================== -->
+  <script>
+    /*************************************************************************
+     * 1. 与固定日期解耦：动态获取系统真实当前日期 (YYYY-MM-DD) 与自然周工具函数
+     *************************************************************************/
+    function formatLocalDate(dateObj) {
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getRealTodayStr() {
+      return formatLocalDate(new Date());
+    }
+
+    function addDaysToDateStr(dateStr, daysToAdd) {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      dt.setDate(dt.getDate() + daysToAdd);
+      return formatLocalDate(dt);
+    }
+
+    // 计算任意基准日所在的自然周（周一至周日）
+    function getNaturalWeekRange(baseDateStr) {
+      const [y, m, d] = baseDateStr.split('-').map(Number);
+      const current = new Date(y, m - 1, d);
+      const dayOfWeek = current.getDay(); // 0 (周日) 到 6 (周六)
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      
+      const monday = new Date(current);
+      monday.setDate(current.getDate() + diffToMonday);
+      
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+
+      const datesInWeek = [];
+      for (let i = 0; i < 7; i++) {
+        const temp = new Date(monday);
+        temp.setDate(monday.getDate() + i);
+        datesInWeek.push(formatLocalDate(temp));
+      }
+
+      return {
+        mondayStr: formatLocalDate(monday),
+        sundayStr: formatLocalDate(sunday),
+        datesInWeek
+      };
+    }
+
+    function uid(prefix = 'id') {
+      return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    }
+
+    /*************************************************************************
+     * 2. 双模数据持久化引擎 (LocalStorage 防误重置锁 + File System Access API)
+     *************************************************************************/
+    const STORAGE_KEY = 'RESEARCH_PLAN_FLEX_V3_STATE';
+    let todayStr = getRealTodayStr();
+    let workingDateStr = todayStr; // 用户当前聚焦的工作日，默认永远等于系统真实今日
+    let activeProjectFilter = 'all'; // 'all' 或具体 projectId
+    let activeNavKey = 'projects'; // 当前侧边栏选中的板块键
+    let workspaceDisplayMode = 'panorama'; // 'panorama' (全景三栏) 或 'focus' (单板块专注)
+    let boundFileHandle = null; // File System Access API 文件句柄
+    let appState = null;
+
+    // 构建与当前真实日期动态绑定的高价值科研示例初始数据（仅当 localStorage === null 时触发）
+    function createInitialSeedData(baseToday) {
+      const yesterday = addDaysToDateStr(baseToday, -1);
+      const twoDaysAgo = addDaysToDateStr(baseToday, -2);
+      const tomorrow = addDaysToDateStr(baseToday, 1);
+
+      const proj1Id = 'proj_cvpr_distill';
+      const proj2Id = 'proj_llm_agent';
+
+      return {
+        version: '3.0.0',
+        lastUpdated: new Date().toISOString(),
+        projects: [
+          {
+            id: proj1Id,
+            name: '跨模态特征动态蒸馏 (Cross-Modal Distillation)',
+            venue: 'CVPR / ICCV',
+            status: 'experimenting',
+            deadline: addDaysToDateStr(baseToday, 45),
+            createdAt: twoDaysAgo
+          },
+          {
+            id: proj2Id,
+            name: '长上下文科研推理 Agent 记忆压缩机制',
+            venue: 'NeurIPS / ICLR',
+            status: 'exploring',
+            deadline: addDaysToDateStr(baseToday, 75),
+            createdAt: twoDaysAgo
+          }
+        ],
+        ideas: [
+          {
+            id: 'idea_1',
+            projectId: proj1Id,
+            content: '在 Teacher-Student 特征对齐层引入基于余弦相似度的动态温度系数 τ，缓解早期训练梯度不稳定问题。',
+            tag: '#Loss设计',
+            createdAt: yesterday
+          },
+          {
+            id: 'idea_2',
+            projectId: proj2Id,
+            content: '阅读 Attention Sink 论文启发：能否保留首尾关键 Token 并对中间冗余实验日志采用键值对聚类压缩？',
+            tag: '#文献启发',
+            createdAt: baseToday
+          }
+        ],
+        plans: [
+          {
+            id: 'plan_1',
+            projectId: proj1Id,
+            title: '[ImageNet-1K] × [ResNet50-Baseline] × [lr=1e-4] 基准复现精度对齐',
+            scheduledDate: twoDaysAgo,
+            category: 'Baseline复现',
+            priority: 'P0',
+            metricResult: 'Top-1 Acc: 76.42% (对齐官方报告)',
+            batchName: '主实验消融矩阵',
+            completed: true,
+            completedAt: twoDaysAgo
+          },
+          {
+            id: 'plan_2',
+            projectId: proj1Id,
+            title: '[COCO-Det] × [ViT-B/16+Ours] × [w/o Dynamic-τ] 消融对比实验',
+            scheduledDate: yesterday,
+            category: '消融实验(Ablation)',
+            priority: 'P0',
+            metricResult: '等待 4 卡 A100 跑完最后一个 Epoch',
+            batchName: '主实验消融矩阵',
+            completed: false,
+            completedAt: null
+          },
+          {
+            id: 'plan_3',
+            projectId: proj1Id,
+            title: '[ImageNet-1K] × [ViT-B/16+Ours] × [Full-Distill-Loss] 主实验验证',
+            scheduledDate: baseToday,
+            category: '主实验对比',
+            priority: 'P0',
+            metricResult: '当前 Top-1 Acc: 82.15% (+1.8%)',
+            batchName: '主实验消融矩阵',
+            completed: true,
+            completedAt: baseToday
+          },
+          {
+            id: 'plan_4',
+            projectId: proj1Id,
+            title: '绘制不同温度系数 τ ∈ {0.03, 0.07, 0.1, 0.2} 敏感性分析折线图',
+            scheduledDate: baseToday,
+            category: '论文图表绘制',
+            priority: 'P1',
+            metricResult: '待整理 Matplotlib 脚本',
+            batchName: '超参敏感性矩阵',
+            completed: false,
+            completedAt: null
+          },
+          {
+            id: 'plan_5',
+            projectId: proj2Id,
+            title: '构建 LongBench 科研长文档问答评测子集与评测 Pipeline',
+            scheduledDate: tomorrow,
+            category: '数据预处理/工程',
+            priority: 'P1',
+            metricResult: '',
+            batchName: '手动排期',
+            completed: false,
+            completedAt: null
+          }
+        ],
+        diaries: {
+          [yesterday]: {
+            progress: '完成了 ResNet50 与 ViT-B/16 的特征维度投影层代码联调；启动了 COCO-Det 上的消融实验。',
+            blockers: '多卡 DDP 同步 BatchNorm 在小 BatchSize 下出现轻微 Loss 震荡，已改用 SyncBatchNorm。',
+            nextSteps: '重点跟进今日 ImageNet-1K 主实验收敛情况，并整理超参敏感性曲线。',
+            updatedAt: new Date().toISOString()
+          },
+          [baseToday]: {
+            progress: 'ImageNet-1K 主实验收敛达到 82.15%，相比 Baseline 提升 1.8 个百分点，验证了跨模态动态蒸馏模块的有效性。',
+            blockers: 'COCO-Det 消融实验昨晚因集群节点抢占中断了 2 小时，已从最近 Checkpoint 恢复训练。',
+            nextSteps: '补齐剩余温度系数 τ 网格搜索实验，导出本周组会汇报 Markdown。',
+            updatedAt: new Date().toISOString()
+          }
+        }
+      };
+    }
+
+    // 严格遵守铁律 4：读取初始化必须严格使用 if (raw === null) 防误重置锁
+    function loadStateFromStorage() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw === null) {
+        appState = createInitialSeedData(todayStr);
+        saveStateToStorage(false);
+      } else {
+        try {
+          appState = JSON.parse(raw);
+          if (!Array.isArray(appState.projects)) appState.projects = [];
+          if (!Array.isArray(appState.ideas)) appState.ideas = [];
+          if (!Array.isArray(appState.plans)) appState.plans = [];
+          if (!appState.diaries || typeof appState.diaries !== 'object') appState.diaries = {};
+        } catch (err) {
+          console.error('解析本地存储数据异常，已保留原备份键并初始化安全副本:', err);
+          localStorage.setItem(STORAGE_KEY + '_CORRUPTED_BACKUP_' + Date.now(), raw);
+          appState = createInitialSeedData(todayStr);
+        }
+      }
+    }
+
+    async function saveStateToStorage(showIndicator = true) {
+      appState.lastUpdated = new Date().toISOString();
+      const serialized = JSON.stringify(appState, null, 2);
+      localStorage.setItem(STORAGE_KEY, serialized);
+
+      if (boundFileHandle) {
+        try {
+          const writable = await boundFileHandle.createWritable();
+          await writable.write(serialized);
+          await writable.close();
+          updateStorageBadge('本地硬盘文件 + LocalStorage 双重实时同步', true);
+        } catch (err) {
+          console.warn('写入本地文件句柄失败:', err);
+          updateStorageBadge('本地文件写入受阻 (LocalStorage 仍正常保存)', false);
+        }
+      } else if (showIndicator) {
+        updateStorageBadge('LocalStorage 已毫秒级自动保存', true);
+      }
+    }
+
+    function updateStorageBadge(text, isHealthy = true) {
+      const badge = document.getElementById('storageStatusBadge');
+      if (!badge) return;
+      badge.className = `inline-flex items-center gap-1 font-medium ${isHealthy ? 'text-emerald-600' : 'text-amber-600'}`;
+      badge.innerHTML = `
+        <span class="w-1.5 h-1.5 rounded-full ${isHealthy ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
+        <span>${text}</span>
+      `;
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toastNotification');
+      const msgEl = document.getElementById('toastMessageText');
+      msgEl.textContent = message;
+      toast.classList.remove('hidden', 'translate-y-2', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.classList.add('hidden'), 200);
+      }, 2400);
+    }
+
+    /*************************************************************************
+     * 3. 智能侧边栏导航与专注视图控制引擎 (Sidebar Navigation Engine)
+     *************************************************************************/
+    const NAV_CONFIG = {
+      'projects':    { cardId: 'sec-projects',     colId: 'colLeft',   focusInputId: 'projectNameInput' },
+      'ideas':       { cardId: 'sec-ideas',        colId: 'colLeft',   focusInputId: 'ideaContentInput' },
+      'plan-single': { cardId: 'sec-plan-creator', colId: 'colCenter', focusInputId: 'planTitleInput',   subTab: 'single' },
+      'plan-matrix': { cardId: 'sec-plan-creator', colId: 'colCenter', focusInputId: 'matrixDimA',       subTab: 'matrix' },
+      'plan-pool':   { cardId: 'sec-plan-pool',    colId: 'colCenter', focusInputId: 'searchPlanInput' },
+      'timeline':    { cardId: 'sec-timeline',     colId: 'colRight' },
+      'diary':       { cardId: 'sec-diary-weekly', colId: 'colRight',  focusInputId: 'diaryProgressInput', rightTab: 'diary' },
+      'weekly':      { cardId: 'sec-diary-weekly', colId: 'colRight',  rightTab: 'weekly' }
+    };
+
+    // 侧边栏点击快速定位
+    window.navigateToSection = function(navKey) {
+      const cfg = NAV_CONFIG[navKey];
+      if (!cfg) return;
+      activeNavKey = navKey;
+
+      // 1) 自动切换内部关联的子标签页（例如点「批量模块矩阵生成」自动展开矩阵面板，点「组会周报」自动切到周报Tab）
+      if (cfg.subTab === 'single') switchPlanInputTab('single');
+      if (cfg.subTab === 'matrix') switchPlanInputTab('matrix');
+      if (cfg.rightTab === 'diary') switchRightLogTab('diary');
+      if (cfg.rightTab === 'weekly') switchRightLogTab('weekly');
+
+      // 2) 更新侧边栏按钮激活样式
+      updateSidebarActiveHighlight();
+
+      // 3) 若处于「沉浸专注模式」，仅显示目标板块并居中放大
+      applyWorkspaceDisplayModeLayout();
+
+      // 4) 平滑滚动到目标卡片并触发聚光灯高亮动画
+      const cardEl = document.getElementById(cfg.cardId);
+      if (cardEl) {
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        cardEl.classList.remove('section-spotlight');
+        void cardEl.offsetWidth; // 触发重绘以重新播放动画
+        cardEl.classList.add('section-spotlight');
+      }
+
+      // 5) 如果是新建类板块，轻微延迟后自动聚焦输入框
+      if (cfg.focusInputId && workspaceDisplayMode === 'focus') {
+        setTimeout(() => {
+          const inp = document.getElementById(cfg.focusInputId);
+          if (inp) inp.focus({ preventScroll: true });
+        }, 250);
+      }
+    };
+
+    function updateSidebarActiveHighlight() {
+      document.querySelectorAll('#appSidebar [data-nav]').forEach(btn => {
+        const key = btn.getAttribute('data-nav');
+        if (key === activeNavKey) {
+          btn.className = 'sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200/70 shadow-sm transition group';
+        } else {
+          btn.className = 'sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-100/80 border border-transparent transition group';
+        }
+      });
+    }
+
+    // 切换「全景工作台」与「沉浸专注模式」
+    window.setWorkspaceDisplayMode = function(mode) {
+      workspaceDisplayMode = mode;
+      const btnPanorama = document.getElementById('btnLayoutPanorama');
+      const btnFocus = document.getElementById('btnLayoutFocus');
+
+      if (mode === 'focus') {
+        btnFocus.className = 'sidebar-nav-btn py-1.5 px-2 rounded-lg bg-white text-indigo-700 shadow-sm flex items-center justify-center gap-1.5 transition';
+        btnPanorama.className = 'sidebar-nav-btn py-1.5 px-2 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+        showToast('🔍 已开启「沉浸专注视图」：点击左侧导航可单独放大任意板块');
+      } else {
+        btnPanorama.className = 'sidebar-nav-btn py-1.5 px-2 rounded-lg bg-white text-slate-900 shadow-sm flex items-center justify-center gap-1.5 transition';
+        btnFocus.className = 'sidebar-nav-btn py-1.5 px-2 rounded-lg text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1.5 transition';
+        showToast('🖥️ 已恢复「全景三栏工作台」');
+      }
+      applyWorkspaceDisplayModeLayout();
+    };
+
+    function applyWorkspaceDisplayModeLayout() {
+      const allCards = ['sec-projects', 'sec-ideas', 'sec-plan-creator', 'sec-plan-pool', 'sec-timeline', 'sec-diary-weekly'];
+      const allCols = [
+        { id: 'colLeft', defaultCls: 'lg:col-span-3 flex flex-col gap-5' },
+        { id: 'colCenter', defaultCls: 'lg:col-span-5 flex flex-col gap-5' },
+        { id: 'colRight', defaultCls: 'lg:col-span-4 flex flex-col gap-5' }
+      ];
+
+      if (workspaceDisplayMode === 'panorama') {
+        allCols.forEach(c => {
+          const el = document.getElementById(c.id);
+          if (el) el.className = c.defaultCls;
+        });
+        allCards.forEach(cid => {
+          const el = document.getElementById(cid);
+          if (el) el.classList.remove('hidden');
+        });
+      } else {
+        const cfg = NAV_CONFIG[activeNavKey] || NAV_CONFIG['projects'];
+        allCols.forEach(c => {
+          const el = document.getElementById(c.id);
+          if (!el) return;
+          if (c.id === cfg.colId) {
+            el.className = 'lg:col-span-10 lg:col-start-2 flex flex-col gap-5';
+          } else {
+            el.className = 'hidden';
+          }
+        });
+        allCards.forEach(cid => {
+          const el = document.getElementById(cid);
+          if (!el) return;
+          if (cid === cfg.cardId) {
+            el.classList.remove('hidden');
+          } else {
+            el.classList.add('hidden');
+          }
+        });
+      }
+    }
+
+    // 侧边栏折叠与展开控制
+    function toggleSidebarCollapse() {
+      const sidebar = document.getElementById('appSidebar');
+      sidebar.classList.toggle('sidebar-collapsed');
+    }
+
+    document.getElementById('btnToggleSidebar').addEventListener('click', toggleSidebarCollapse);
+
+    // 支持键盘快捷键 `[` 快速折叠/展开侧边栏（不在输入框聚焦时生效）
+    window.addEventListener('keydown', (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === '[') {
+        e.preventDefault();
+        toggleSidebarCollapse();
+      }
+    });
+
+    /*************************************************************************
+     * 4. 辅助映射与转义函数
+     *************************************************************************/
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    const PROJECT_STATUS_META = {
+      exploring: { label: '探索调研', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+      experimenting: { label: '实验攻坚', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+      writing: { label: '论文撰写', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+      rebuttal: { label: 'Rebuttal', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+      accepted: { label: '已录用/结题', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' }
+    };
+
+    const PRIORITY_META = {
+      P0: { label: 'P0 关键', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
+      P1: { label: 'P1 核心', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+      P2: { label: 'P2 常规', cls: 'bg-slate-100 text-slate-600 border-slate-200' }
+    };
+
+    function getProjectNameById(projectId) {
+      const proj = appState.projects.find(p => p.id === projectId);
+      return proj ? proj.name : '未归属通用课题';
+    }
+
+    /*************************************************************************
+     * 5. 全局界面渲染总控 (Render Pipeline)
+     *************************************************************************/
+    function renderAll() {
+      todayStr = getRealTodayStr();
+      renderHeaderAndStats();
+      renderSidebarBadgesAndTree();
+      renderProjectSelectOptions();
+      renderProjectsList();
+      renderIdeasList();
+      renderBatchFilterOptions();
+      renderPlanPool();
+      renderDailyTimelineAndOverdue();
+      renderDiaryPanel();
+      renderWeeklyReportMarkdown();
+      updateMatrixPreview();
+      updateSidebarActiveHighlight();
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+    }
+
+    // 5.1 渲染顶部状态栏与全局统计指标
+    function renderHeaderAndStats() {
+      const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+      const now = new Date();
+      const wk = weekDays[now.getDay()];
+      document.getElementById('liveCurrentDateDisplay').textContent = `系统真实今日: ${todayStr} (${wk})`;
+      document.getElementById('workingDatePicker').value = workingDateStr;
+
+      const totalProjects = appState.projects.length;
+      const todayPendingCount = appState.plans.filter(p => p.scheduledDate === todayStr && !p.completed).length;
+      const overdueCount = appState.plans.filter(p => p.scheduledDate < todayStr && !p.completed).length;
+      const totalPlans = appState.plans.length;
+      const completedPlans = appState.plans.filter(p => p.completed).length;
+      const rate = totalPlans > 0 ? Math.round((completedPlans / totalPlans) * 100) : 0;
+
+      document.getElementById('statProjectsCount').textContent = totalProjects;
+      document.getElementById('statTodayPending').textContent = todayPendingCount;
+      document.getElementById('statOverdueCount').textContent = overdueCount;
+      document.getElementById('statCompletionRate').textContent = `${rate}%`;
+    }
+
+    // 5.2 渲染侧边栏实时角标与课题快速过滤树
+    function renderSidebarBadgesAndTree() {
+      const totalProjects = appState.projects.length;
+      const totalIdeas = activeProjectFilter === 'all'
+        ? appState.ideas.length
+        : appState.ideas.filter(i => i.projectId === activeProjectFilter).length;
+      const totalPlans = activeProjectFilter === 'all'
+        ? appState.plans.length
+        : appState.plans.filter(p => p.projectId === activeProjectFilter).length;
+
+      const dayPlans = appState.plans.filter(p => {
+        if (activeProjectFilter !== 'all' && p.projectId !== activeProjectFilter) return false;
+        return p.scheduledDate === workingDateStr;
+      });
+      const doneDayCount = dayPlans.filter(p => p.completed).length;
+
+      const overdueCount = appState.plans.filter(p => {
+        if (activeProjectFilter !== 'all' && p.projectId !== activeProjectFilter) return false;
+        return !p.completed && p.scheduledDate < todayStr;
+      }).length;
+
+      const diaryCount = Object.keys(appState.diaries).filter(d => {
+        const item = appState.diaries[d];
+        return item && (item.progress || item.blockers || item.nextSteps);
+      }).length;
+
+      document.getElementById('navBadgeProjects').textContent = totalProjects;
+      document.getElementById('navBadgeIdeas').textContent = totalIdeas;
+      document.getElementById('navBadgePlanPool').textContent = totalPlans;
+      document.getElementById('navBadgeToday').textContent = `${doneDayCount}/${dayPlans.length}`;
+      document.getElementById('navBadgeDiary').textContent = `${diaryCount}篇`;
+
+      const overdueDot = document.getElementById('navBadgeOverdueDot');
+      if (overdueCount > 0) {
+        overdueDot.textContent = `${overdueCount}逾期`;
+        overdueDot.classList.remove('hidden');
+      } else {
+        overdueDot.classList.add('hidden');
+      }
+
+      // 侧边栏底部全局完成率
+      const allPlansCount = appState.plans.length;
+      const allDoneCount = appState.plans.filter(p => p.completed).length;
+      const globalRate = allPlansCount > 0 ? Math.round((allDoneCount / allPlansCount) * 100) : 0;
+      document.getElementById('sidebarFooterRate').textContent = `${globalRate}%`;
+      document.getElementById('sidebarFooterBar').style.width = `${globalRate}%`;
+
+      // 渲染侧边栏课题快速过滤树
+      const treeContainer = document.getElementById('sidebarProjectFilterTree');
+      const allBtnActive = activeProjectFilter === 'all';
+      let treeHtml = `
+        <button type="button" onclick="selectProjectFilter('all')"
+                class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition ${allBtnActive ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}">
+          <div class="flex items-center gap-2 truncate">
+            <span class="w-2 h-2 rounded-full ${allBtnActive ? 'bg-emerald-400' : 'bg-slate-300'} shrink-0"></span>
+            <span class="sidebar-label truncate">全部科研课题</span>
+          </div>
+          <span class="sidebar-badge text-[10px] font-mono opacity-80">${appState.plans.length}</span>
+        </button>
+      `;
+
+      appState.projects.forEach(proj => {
+        const isSelected = activeProjectFilter === proj.id;
+        const projPlanCount = appState.plans.filter(p => p.projectId === proj.id).length;
+        treeHtml += `
+          <button type="button" onclick="selectProjectFilter('${escapeHtml(proj.id)}')"
+                  class="sidebar-nav-btn w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition ${isSelected ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}"
+                  title="${escapeHtml(proj.name)}">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="w-2 h-2 rounded-full ${isSelected ? 'bg-brand-400' : 'bg-indigo-400'} shrink-0"></span>
+              <span class="sidebar-label truncate">${escapeHtml(proj.name)}</span>
+            </div>
+            <span class="sidebar-badge text-[10px] font-mono opacity-80 shrink-0">${projPlanCount}</span>
+          </button>
+        `;
+      });
+
+      treeContainer.innerHTML = treeHtml;
+    }
+
+    // 5.3 同步所有下拉框中的科研课题列表
+    function renderProjectSelectOptions() {
+      const selects = [
+        document.getElementById('ideaProjectSelect'),
+        document.getElementById('planProjectSelect'),
+        document.getElementById('matrixProjectSelect')
+      ];
+
+      const optionsHtml = appState.projects.length > 0
+        ? appState.projects.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('')
+        : `<option value="">(请先在左侧立项科研课题)</option>`;
+
+      selects.forEach(sel => {
+        if (!sel) return;
+        const prevVal = sel.value;
+        sel.innerHTML = optionsHtml;
+        if (prevVal && appState.projects.some(p => p.id === prevVal)) {
+          sel.value = prevVal;
+        } else if (activeProjectFilter !== 'all' && appState.projects.some(p => p.id === activeProjectFilter)) {
+          sel.value = activeProjectFilter;
+        }
+      });
+    }
+
+    // 5.4 渲染左栏：科研项目/课题列表
+    function renderProjectsList() {
+      const container = document.getElementById('projectListContainer');
+      const filterBadge = document.getElementById('currentProjectFilterBadge');
+
+      if (activeProjectFilter === 'all') {
+        filterBadge.textContent = '当前视图：全部课题';
+        filterBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium';
+      } else {
+        filterBadge.textContent = `课题过滤：${getProjectNameById(activeProjectFilter)}`;
+        filterBadge.className = 'text-xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 font-medium';
+      }
+
+      if (appState.projects.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-6 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+            暂无科研课题，请在上方直接填写表单立项
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = appState.projects.map(proj => {
+        const statusMeta = PROJECT_STATUS_META[proj.status] || PROJECT_STATUS_META.experimenting;
+        const projPlans = appState.plans.filter(p => p.projectId === proj.id);
+        const doneCount = projPlans.filter(p => p.completed).length;
+        const pct = projPlans.length > 0 ? Math.round((doneCount / projPlans.length) * 100) : 0;
+        const isSelected = activeProjectFilter === proj.id;
+
+        let deadlineTag = '';
+        if (proj.deadline) {
+          const diffDays = Math.ceil((new Date(proj.deadline) - new Date(todayStr)) / (1000 * 60 * 60 * 24));
+          const dlColor = diffDays < 0 ? 'text-rose-600' : (diffDays <= 14 ? 'text-amber-600 font-semibold' : 'text-slate-500');
+          deadlineTag = `<span class="font-mono text-[11px] ${dlColor}">${diffDays >= 0 ? `距截稿 ${diffDays} 天` : `已过截稿日`}</span>`;
+        }
+
+        return `
+          <div class="p-3 rounded-xl border transition cursor-pointer ${isSelected ? 'bg-brand-50/60 border-brand-400 shadow-sm' : 'bg-white border-slate-200/90 hover:border-slate-300'}"
+               onclick="selectProjectFilter('${escapeHtml(proj.id)}')">
+            <div class="flex items-start justify-between gap-2">
+              <div class="font-semibold text-xs text-slate-900 leading-snug">${escapeHtml(proj.name)}</div>
+              <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
+                <button type="button" onclick="startEditProject('${escapeHtml(proj.id)}')" class="p-1 text-slate-400 hover:text-brand-600 rounded" title="编辑课题">
+                  <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                </button>
+                <button type="button" onclick="deleteProject('${escapeHtml(proj.id)}')" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="删除课题">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 mt-2">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="text-[10px] font-medium px-1.5 py-0.5 rounded border ${statusMeta.cls}">${statusMeta.label}</span>
+                ${proj.venue ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">${escapeHtml(proj.venue)}</span>` : ''}
+              </div>
+              ${deadlineTag}
+            </div>
+
+            <div class="mt-2.5 flex items-center gap-2">
+              <div class="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-brand-500 rounded-full transition-all" style="width: ${pct}%"></div>
+              </div>
+              <span class="text-[10px] font-mono text-slate-500">${doneCount}/${projPlans.length}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 5.5 渲染左栏下部：随手记科研灵感池
+    function renderIdeasList() {
+      const container = document.getElementById('ideaListContainer');
+      const filteredIdeas = activeProjectFilter === 'all'
+        ? appState.ideas
+        : appState.ideas.filter(item => item.projectId === activeProjectFilter);
+
+      document.getElementById('ideaCountBadge').textContent = `${filteredIdeas.length} 条灵感`;
+
+      if (filteredIdeas.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-5 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+            暂无科研灵感记录，随时在上方记录文献启发或实验猜想
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filteredIdeas.slice().reverse().map(idea => {
+        const projName = getProjectNameById(idea.projectId);
+        return `
+          <div class="p-2.5 rounded-xl bg-amber-50/40 border border-amber-200/70 hover:border-amber-300 transition group">
+            <p class="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">${escapeHtml(idea.content)}</p>
+            <div class="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-amber-200/40">
+              <div class="flex items-center gap-1.5 flex-wrap text-[10px]">
+                <span class="px-1.5 py-0.5 rounded bg-white text-slate-600 border border-slate-200 truncate max-w-[130px]">${escapeHtml(projName)}</span>
+                ${idea.tag ? `<span class="font-mono text-amber-800 font-medium">${escapeHtml(idea.tag)}</span>` : ''}
+                <span class="font-mono text-slate-400">${escapeHtml(idea.createdAt)}</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <button type="button" onclick="convertIdeaToPlan('${escapeHtml(idea.id)}')" class="px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500 hover:text-white text-amber-800 text-[10px] font-medium transition flex items-center gap-0.5" title="将该灵感一键转化为今日实验计划">
+                  <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+                  <span>转实验</span>
+                </button>
+                <button type="button" onclick="deleteIdea('${escapeHtml(idea.id)}')" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="删除灵感">
+                  <i data-lucide="x" class="w-3 h-3"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 5.6 更新批次过滤下拉菜单
+    function renderBatchFilterOptions() {
+      const batchSelect = document.getElementById('filterPlanBatch');
+      const prevVal = batchSelect.value;
+      const batches = Array.from(new Set(appState.plans.map(p => p.batchName).filter(Boolean)));
+      batchSelect.innerHTML = `<option value="all">全部矩阵批次 (${batches.length})</option>` +
+        batches.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+      if (batches.includes(prevVal)) {
+        batchSelect.value = prevVal;
+      }
+    }
+
+    // 5.7 渲染中栏：实验计划与模块矩阵总池
+    function renderPlanPool() {
+      const container = document.getElementById('planPoolContainer');
+      const statusFilter = document.getElementById('filterPlanStatus').value;
+      const batchFilter = document.getElementById('filterPlanBatch').value;
+      const keyword = document.getElementById('searchPlanInput').value.trim().toLowerCase();
+
+      let list = appState.plans.filter(plan => {
+        if (activeProjectFilter !== 'all' && plan.projectId !== activeProjectFilter) return false;
+        if (batchFilter !== 'all' && plan.batchName !== batchFilter) return false;
+        if (statusFilter === 'pending' && plan.completed) return false;
+        if (statusFilter === 'completed' && !plan.completed) return false;
+        if (statusFilter === 'overdue' && (plan.completed || plan.scheduledDate >= todayStr)) return false;
+        if (keyword) {
+          const hay = `${plan.title} ${plan.category} ${plan.metricResult || ''} ${plan.batchName || ''}`.toLowerCase();
+          if (!hay.includes(keyword)) return false;
+        }
+        return true;
+      });
+
+      const totalFiltered = list.length;
+      const doneFiltered = list.filter(p => p.completed).length;
+      const pct = totalFiltered > 0 ? Math.round((doneFiltered / totalFiltered) * 100) : 0;
+      document.getElementById('filteredProgressText').textContent = `${doneFiltered} / ${totalFiltered} (${pct}%)`;
+      document.getElementById('filteredProgressBar').style.width = `${pct}%`;
+
+      list.sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        if (a.scheduledDate !== b.scheduledDate) return a.scheduledDate.localeCompare(b.scheduledDate);
+        return a.priority.localeCompare(b.priority);
+      });
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+            当前筛选条件下暂无实验计划，可在上方添加单项实验或使用「批量生成模块矩阵池」
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = list.map(plan => {
+        const isOverdue = !plan.completed && plan.scheduledDate < todayStr;
+        const isToday = plan.scheduledDate === todayStr;
+        const prioMeta = PRIORITY_META[plan.priority] || PRIORITY_META.P1;
+        const projName = getProjectNameById(plan.projectId);
+
+        return `
+          <div class="p-3 rounded-xl border transition ${plan.completed ? 'bg-slate-50/70 border-slate-200/70 opacity-80' : (isOverdue ? 'bg-rose-50/30 border-rose-200 hover:border-rose-300' : 'bg-white border-slate-200 hover:border-brand-300')}">
+            <div class="flex items-start gap-2.5">
+              <input type="checkbox" class="checkbox-custom mt-0.5 shrink-0" ${plan.completed ? 'checked' : ''}
+                     onchange="togglePlanComplete('${escapeHtml(plan.id)}')" />
+              
+              <div class="flex-1 min-w-0">
+                <div class="flex items-start justify-between gap-2">
+                  <span class="text-xs font-semibold ${plan.completed ? 'line-through text-slate-400' : 'text-slate-900'} leading-snug break-words">
+                    ${escapeHtml(plan.title)}
+                  </span>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <button type="button" onclick="startEditPlan('${escapeHtml(plan.id)}')" class="p-1 text-slate-400 hover:text-brand-600 rounded" title="编辑该实验计划">
+                      <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button type="button" onclick="deletePlan('${escapeHtml(plan.id)}')" class="p-1 text-slate-400 hover:text-rose-600 rounded" title="删除该实验">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-1.5 flex-wrap mt-2 text-[10px]">
+                  <span class="px-1.5 py-0.5 rounded border font-medium ${prioMeta.cls}">${prioMeta.label}</span>
+                  <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">${escapeHtml(plan.category)}</span>
+                  ${plan.batchName ? `<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/60 font-mono">矩阵: ${escapeHtml(plan.batchName)}</span>` : ''}
+                  <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 truncate max-w-[150px]">${escapeHtml(projName)}</span>
+                  <span class="font-mono px-1.5 py-0.5 rounded ${isOverdue ? 'bg-rose-100 text-rose-700 font-bold' : (isToday ? 'bg-brand-100 text-brand-700 font-bold' : 'bg-slate-100 text-slate-600')}">
+                    ${isOverdue ? `⚠️ 逾期 (${escapeHtml(plan.scheduledDate)})` : (isToday ? `🎯 今日 (${escapeHtml(plan.scheduledDate)})` : `📅 ${escapeHtml(plan.scheduledDate)}`)}
+                  </span>
+                </div>
+
+                <div class="mt-2 flex items-center gap-1.5">
+                  <span class="text-[11px] text-slate-400 shrink-0 font-mono">实验结果/指标:</span>
+                  <input type="text" value="${escapeHtml(plan.metricResult || '')}"
+                         placeholder="直接输入实验指标 (如 Top1: 83.4%, mAP: 51.2) 回车或失焦自动保存..."
+                         onchange="updatePlanMetricInline('${escapeHtml(plan.id)}', this.value)"
+                         class="flex-1 px-2 py-1 text-xs font-mono bg-slate-50 border border-slate-200/80 rounded-md focus:bg-white focus:outline-none focus:border-brand-500 text-slate-700" />
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 5.8 渲染右栏上部：每日时间轴打卡与逾期补做工作台
+    function renderDailyTimelineAndOverdue() {
+      const isViewingRealToday = workingDateStr === todayStr;
+      document.getElementById('timelineDateBadge').textContent = isViewingRealToday
+        ? `🌟 今日 (${workingDateStr})`
+        : `🔍 工作日视图 (${workingDateStr})`;
+
+      const overduePlans = appState.plans.filter(p => {
+        if (activeProjectFilter !== 'all' && p.projectId !== activeProjectFilter) return false;
+        return !p.completed && p.scheduledDate < todayStr;
+      });
+
+      const overdueBox = document.getElementById('overdueAlertBox');
+      const overdueListEl = document.getElementById('overdueTimelineList');
+      document.getElementById('overdueBoxCount').textContent = overduePlans.length;
+
+      if (overduePlans.length === 0) {
+        overdueBox.classList.add('hidden');
+      } else {
+        overdueBox.classList.remove('hidden');
+        overdueListEl.innerHTML = overduePlans.map(p => `
+          <div class="p-2 rounded-lg bg-white border border-rose-200/80 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <input type="checkbox" class="checkbox-custom shrink-0" onchange="togglePlanComplete('${escapeHtml(p.id)}')" title="直接补打卡完成" />
+              <div class="min-w-0">
+                <div class="text-xs font-medium text-slate-800 truncate">${escapeHtml(p.title)}</div>
+                <div class="text-[10px] font-mono text-rose-600">原计划日: ${escapeHtml(p.scheduledDate)} · ${escapeHtml(p.category)}</div>
+              </div>
+            </div>
+            <button type="button" onclick="reschedulePlanToWorkingDate('${escapeHtml(p.id)}')"
+                    class="px-2 py-1 rounded bg-rose-100 hover:bg-rose-600 hover:text-white text-rose-700 text-[10px] font-semibold transition shrink-0">
+              移至${isViewingRealToday ? '今日' : '该日'}补做
+            </button>
+          </div>
+        `).join('');
+      }
+
+      const dayPlans = appState.plans.filter(p => {
+        if (activeProjectFilter !== 'all' && p.projectId !== activeProjectFilter) return false;
+        return p.scheduledDate === workingDateStr;
+      });
+
+      const doneDayCount = dayPlans.filter(p => p.completed).length;
+      document.getElementById('todayTimelineSummary').textContent = `已完成 ${doneDayCount}/${dayPlans.length}`;
+
+      const todayListEl = document.getElementById('todayTimelineList');
+      if (dayPlans.length === 0) {
+        todayListEl.innerHTML = `
+          <div class="text-center py-6 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+            ${workingDateStr} 暂无排期实验，可在中栏添加或从逾期列表顺延过来
+          </div>
+        `;
+        return;
+      }
+
+      todayListEl.innerHTML = dayPlans.map(p => {
+        const prioMeta = PRIORITY_META[p.priority] || PRIORITY_META.P1;
+        return `
+          <div class="p-2.5 rounded-xl border transition ${p.completed ? 'bg-emerald-50/40 border-emerald-200/70' : 'bg-white border-slate-200 hover:border-brand-300'}">
+            <div class="flex items-start gap-2">
+              <input type="checkbox" class="checkbox-custom mt-0.5 shrink-0" ${p.completed ? 'checked' : ''}
+                     onchange="togglePlanComplete('${escapeHtml(p.id)}')" />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-xs font-semibold ${p.completed ? 'line-through text-slate-400' : 'text-slate-900'} truncate">
+                    ${escapeHtml(p.title)}
+                  </span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${prioMeta.cls}">${p.priority}</span>
+                </div>
+                <div class="flex items-center justify-between mt-1 text-[11px] text-slate-500">
+                  <span>${escapeHtml(p.category)}</span>
+                  <span class="font-mono text-emerald-700 truncate max-w-[160px]">${escapeHtml(p.metricResult || '')}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 5.9 渲染右栏下部：每日实验日志面板与历史速览
+    function renderDiaryPanel() {
+      document.getElementById('diaryCurrentDateLabel').textContent = workingDateStr === todayStr
+        ? `${workingDateStr} (今日)`
+        : workingDateStr;
+
+      const entry = appState.diaries[workingDateStr] || { progress: '', blockers: '', nextSteps: '' };
+      document.getElementById('diaryProgressInput').value = entry.progress || '';
+      document.getElementById('diaryBlockersInput').value = entry.blockers || '';
+      document.getElementById('diaryNextStepsInput').value = entry.nextSteps || '';
+
+      const diaryDates = Object.keys(appState.diaries)
+        .filter(d => {
+          const item = appState.diaries[d];
+          return item && (item.progress || item.blockers || item.nextSteps);
+        })
+        .sort((a, b) => b.localeCompare(a));
+
+      document.getElementById('recentDiaryCount').textContent = `${diaryDates.length} 篇日志`;
+      const recentListEl = document.getElementById('recentDiaryList');
+
+      if (diaryDates.length === 0) {
+        recentListEl.innerHTML = `<div class="text-xs text-slate-400 py-2 text-center">暂无历史实验日志</div>`;
+        return;
+      }
+
+      recentListEl.innerHTML = diaryDates.map(dt => {
+        const item = appState.diaries[dt];
+        const isCurrent = dt === workingDateStr;
+        const snippet = item.progress || item.blockers || item.nextSteps || '';
+        return `
+          <div onclick="switchWorkingDate('${escapeHtml(dt)}')"
+               class="p-2 rounded-lg border text-xs cursor-pointer transition flex items-center justify-between gap-2 ${isCurrent ? 'bg-brand-50 border-brand-300 text-brand-900' : 'bg-slate-50/70 border-slate-200/70 hover:bg-white'}">
+            <div class="truncate flex-1">
+              <span class="font-mono font-semibold mr-1.5">${escapeHtml(dt)}</span>
+              <span class="text-slate-600">${escapeHtml(snippet)}</span>
+            </div>
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 5.10 自动聚合生成自然周（周一至周日）组会周报 Markdown
+    function generateWeeklyMarkdownText() {
+      const { mondayStr, sundayStr, datesInWeek } = getNaturalWeekRange(workingDateStr);
+      document.getElementById('weeklyRangeLabel').textContent = `${mondayStr} (周一) 至 ${sundayStr} (周日)`;
+
+      const weekPlans = appState.plans.filter(p => p.scheduledDate >= mondayStr && p.scheduledDate <= sundayStr);
+      const completedWeekPlans = weekPlans.filter(p => p.completed);
+      const pendingWeekPlans = weekPlans.filter(p => !p.completed);
+
+      let md = `# 🔬 科研课题组会周报 (${mondayStr} ~ ${sundayStr})\n\n`;
+      md += `> 自动生成时间：${todayStr} | 统计基准：Research Plan Flex v3.0\n\n`;
+
+      md += `## 一、 在研课题进展总览\n`;
+      if (appState.projects.length === 0) {
+        md += `- 暂无立项课题\n\n`;
+      } else {
+        appState.projects.forEach(proj => {
+          const statusMeta = PROJECT_STATUS_META[proj.status] || PROJECT_STATUS_META.experimenting;
+          const pPlans = appState.plans.filter(p => p.projectId === proj.id);
+          const pDone = pPlans.filter(p => p.completed).length;
+          md += `- **${proj.name}** [${statusMeta.label}] (目标: ${proj.venue || '待定'} | 截稿: ${proj.deadline || '无'}) — 累计完成实验 **${pDone}/${pPlans.length}** 组\n`;
+        });
+        md += `\n`;
+      }
+
+      md += `## 二、 本周已完成实验与结果指标 (${completedWeekPlans.length} 项)\n`;
+      if (completedWeekPlans.length === 0) {
+        md += `- 本自然周内暂无已打卡完成的实验记录\n\n`;
+      } else {
+        completedWeekPlans.forEach(p => {
+          const projName = getProjectNameById(p.projectId);
+          md += `- [x] **[${p.category}]** ${p.title} *(课题: ${projName} | 日期: ${p.scheduledDate})*\n`;
+          if (p.metricResult) {
+            md += `  - 📊 **实验指标/结论**: \`${p.metricResult}\`\n`;
+          }
+        });
+        md += `\n`;
+      }
+
+      md += `## 三、 本周实验观察与踩坑排障日志\n`;
+      let hasDiaryInWeek = false;
+      datesInWeek.forEach(dt => {
+        const d = appState.diaries[dt];
+        if (d && (d.progress || d.blockers || d.nextSteps)) {
+          hasDiaryInWeek = true;
+          md += `### 📅 ${dt}\n`;
+          if (d.progress) md += `- **核心进展与实验现象**：${d.progress}\n`;
+          if (d.blockers) md += `- **问题排查与异常分析**：${d.blockers}\n`;
+          if (d.nextSteps) md += `- **后续推进思考**：${d.nextSteps}\n`;
+          md += `\n`;
+        }
+      });
+      if (!hasDiaryInWeek) {
+        md += `- 本周暂无填写的每日实验日志记录\n\n`;
+      }
+
+      md += `## 四、 待完成实验与下周推进计划 (${pendingWeekPlans.length} 项)\n`;
+      if (pendingWeekPlans.length === 0) {
+        md += `- 本周排期实验已全部闭环！\n\n`;
+      } else {
+        pendingWeekPlans.forEach(p => {
+          md += `- [ ] **[${p.priority} | ${p.category}]** ${p.title} *(计划日: ${p.scheduledDate})*\n`;
+        });
+        md += `\n`;
+      }
+
+      const weekIdeas = appState.ideas.filter(i => i.createdAt >= mondayStr && i.createdAt <= sundayStr);
+      md += `## 五、 本周新增科研灵感 (Idea Pool)\n`;
+      if (weekIdeas.length === 0) {
+        md += `- 本周暂无新增灵感记录\n`;
+      } else {
+        weekIdeas.forEach(i => {
+          md += `- 💡 ${i.content} (${i.tag || '#灵感'} | ${getProjectNameById(i.projectId)})\n`;
+        });
+      }
+
+      return md;
+    }
+
+    function renderWeeklyReportMarkdown() {
+      const outputEl = document.getElementById('weeklyReportMarkdownOutput');
+      if (outputEl) {
+        outputEl.value = generateWeeklyMarkdownText();
+      }
+    }
+
+    /*************************************************************************
+     * 6. 核心交互动作函数 (CRUD 与笛卡尔积矩阵生成)
+     *************************************************************************/
+    window.selectProjectFilter = function(projectId) {
+      if (projectId === 'all') {
+        activeProjectFilter = 'all';
+      } else {
+        activeProjectFilter = (activeProjectFilter === projectId) ? 'all' : projectId;
+      }
+      renderAll();
+    };
+
+    document.getElementById('btnShowAllProjects').addEventListener('click', () => {
+      activeProjectFilter = 'all';
+      renderAll();
+    });
+
+    document.getElementById('formProject').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const editId = document.getElementById('projectEditId').value;
+      const name = document.getElementById('projectNameInput').value.trim();
+      const venue = document.getElementById('projectVenueInput').value.trim();
+      const status = document.getElementById('projectStatusInput').value;
+      const deadline = document.getElementById('projectDeadlineInput').value;
+
+      if (!name) return;
+
+      if (editId) {
+        const target = appState.projects.find(p => p.id === editId);
+        if (target) {
+          target.name = name;
+          target.venue = venue;
+          target.status = status;
+          target.deadline = deadline;
+          showToast('课题信息已更新');
+        }
+      } else {
+        const newProj = {
+          id: uid('proj'),
+          name,
+          venue,
+          status,
+          deadline,
+          createdAt: todayStr
+        };
+        appState.projects.push(newProj);
+        showToast('新科研课题已立项');
+      }
+
+      resetProjectForm();
+      saveStateToStorage();
+      renderAll();
+    });
+
+    window.startEditProject = function(projectId) {
+      const proj = appState.projects.find(p => p.id === projectId);
+      if (!proj) return;
+      document.getElementById('projectEditId').value = proj.id;
+      document.getElementById('projectNameInput').value = proj.name;
+      document.getElementById('projectVenueInput').value = proj.venue || '';
+      document.getElementById('projectStatusInput').value = proj.status || 'experimenting';
+      document.getElementById('projectDeadlineInput').value = proj.deadline || '';
+      document.getElementById('projectFormTitle').textContent = '✏️ 编辑课题信息';
+      document.getElementById('btnCancelProjectEdit').classList.remove('hidden');
+      document.getElementById('projectNameInput').focus();
+    };
+
+    function resetProjectForm() {
+      document.getElementById('formProject').reset();
+      document.getElementById('projectEditId').value = '';
+      document.getElementById('projectFormTitle').textContent = '快速立项 / 新建课题';
+      document.getElementById('btnCancelProjectEdit').classList.add('hidden');
+    }
+
+    document.getElementById('btnCancelProjectEdit').addEventListener('click', resetProjectForm);
+
+    window.deleteProject = function(projectId) {
+      const proj = appState.projects.find(p => p.id === projectId);
+      if (!proj) return;
+      if (!confirm(`确定删除课题「${proj.name}」吗？关联的实验计划将保留但归为未归属状态。`)) return;
+      appState.projects = appState.projects.filter(p => p.id !== projectId);
+      if (activeProjectFilter === projectId) activeProjectFilter = 'all';
+      saveStateToStorage();
+      renderAll();
+      showToast('课题已移除');
+    };
+
+    // 随手记科研灵感池 CRUD 与一键转实验
+    document.getElementById('formIdea').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const content = document.getElementById('ideaContentInput').value.trim();
+      const projectId = document.getElementById('ideaProjectSelect').value;
+      const tag = document.getElementById('ideaTagInput').value.trim() || '#科研灵感';
+
+      if (!content) return;
+      appState.ideas.push({
+        id: uid('idea'),
+        projectId,
+        content,
+        tag,
+        createdAt: todayStr
+      });
+
+      document.getElementById('ideaContentInput').value = '';
+      document.getElementById('ideaTagInput').value = '';
+      saveStateToStorage();
+      renderAll();
+      showToast('科研灵感已收入灵感池');
+    });
+
+    window.deleteIdea = function(ideaId) {
+      appState.ideas = appState.ideas.filter(i => i.id !== ideaId);
+      saveStateToStorage();
+      renderAll();
+    };
+
+    window.convertIdeaToPlan = function(ideaId) {
+      const idea = appState.ideas.find(i => i.id === ideaId);
+      if (!idea) return;
+      const newPlan = {
+        id: uid('plan'),
+        projectId: idea.projectId || (appState.projects[0]?.id || ''),
+        title: `[灵感验证] ${idea.content}`,
+        scheduledDate: workingDateStr,
+        category: '主实验对比',
+        priority: 'P1',
+        metricResult: '',
+        batchName: '灵感转化实验',
+        completed: false,
+        completedAt: null
+      };
+      appState.plans.push(newPlan);
+      saveStateToStorage();
+      renderAll();
+      showToast('已将科研灵感转化为当日实验计划');
+    };
+
+    // 单项实验计划添加与编辑
+    document.getElementById('formSinglePlan').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const editId = document.getElementById('planEditId').value;
+      const title = document.getElementById('planTitleInput').value.trim();
+      const projectId = document.getElementById('planProjectSelect').value;
+      const scheduledDate = document.getElementById('planDateInput').value || workingDateStr;
+      const category = document.getElementById('planCategoryInput').value;
+      const priority = document.getElementById('planPriorityInput').value;
+      const metricResult = document.getElementById('planMetricInput').value.trim();
+
+      if (!title) return;
+
+      if (editId) {
+        const target = appState.plans.find(p => p.id === editId);
+        if (target) {
+          target.title = title;
+          target.projectId = projectId;
+          target.scheduledDate = scheduledDate;
+          target.category = category;
+          target.priority = priority;
+          target.metricResult = metricResult;
+          showToast('实验计划已更新');
+        }
+      } else {
+        appState.plans.push({
+          id: uid('plan'),
+          projectId,
+          title,
+          scheduledDate,
+          category,
+          priority,
+          metricResult,
+          batchName: '常规排期',
+          completed: false,
+          completedAt: null
+        });
+        showToast('实验计划已加入排期池');
+      }
+
+      resetPlanForm();
+      saveStateToStorage();
+      renderAll();
+    });
+
+    window.startEditPlan = function(planId) {
+      const plan = appState.plans.find(p => p.id === planId);
+      if (!plan) return;
+      navigateToSection('plan-single');
+      document.getElementById('planEditId').value = plan.id;
+      document.getElementById('planTitleInput').value = plan.title;
+      document.getElementById('planProjectSelect').value = plan.projectId || '';
+      document.getElementById('planDateInput').value = plan.scheduledDate;
+      document.getElementById('planCategoryInput').value = plan.category;
+      document.getElementById('planPriorityInput').value = plan.priority;
+      document.getElementById('planMetricInput').value = plan.metricResult || '';
+      document.getElementById('btnSubmitPlanText').textContent = '保存实验修改';
+      document.getElementById('btnCancelPlanEdit').classList.remove('hidden');
+      document.getElementById('planTitleInput').focus();
+    };
+
+    function resetPlanForm() {
+      document.getElementById('planEditId').value = '';
+      document.getElementById('planTitleInput').value = '';
+      document.getElementById('planMetricInput').value = '';
+      document.getElementById('planDateInput').value = workingDateStr;
+      document.getElementById('btnSubmitPlanText').textContent = '加入实验计划池';
+      document.getElementById('btnCancelPlanEdit').classList.add('hidden');
+    }
+
+    document.getElementById('btnCancelPlanEdit').addEventListener('click', resetPlanForm);
+
+    window.togglePlanComplete = function(planId) {
+      const plan = appState.plans.find(p => p.id === planId);
+      if (!plan) return;
+      plan.completed = !plan.completed;
+      plan.completedAt = plan.completed ? todayStr : null;
+      saveStateToStorage();
+      renderAll();
+      showToast(plan.completed ? '🎉 实验打卡完成！' : '已取消完成标记');
+    };
+
+    window.updatePlanMetricInline = function(planId, newMetric) {
+      const plan = appState.plans.find(p => p.id === planId);
+      if (!plan) return;
+      plan.metricResult = newMetric.trim();
+      saveStateToStorage();
+      renderDailyTimelineAndOverdue();
+      renderWeeklyReportMarkdown();
+      showToast('实验结果指标已实时保存');
+    };
+
+    window.deletePlan = function(planId) {
+      appState.plans = appState.plans.filter(p => p.id !== planId);
+      saveStateToStorage();
+      renderAll();
+      showToast('实验计划已删除');
+    };
+
+    window.reschedulePlanToWorkingDate = function(planId) {
+      const plan = appState.plans.find(p => p.id === planId);
+      if (!plan) return;
+      plan.scheduledDate = workingDateStr;
+      saveStateToStorage();
+      renderAll();
+      showToast(`已顺延至 ${workingDateStr} 补做`);
+    };
+
+    document.getElementById('btnBatchPostponeOverdue').addEventListener('click', () => {
+      const overdueList = appState.plans.filter(p => !p.completed && p.scheduledDate < todayStr);
+      if (overdueList.length === 0) {
+        showToast('当前没有逾期未完成的实验');
+        return;
+      }
+      overdueList.forEach(p => {
+        p.scheduledDate = todayStr;
+      });
+      saveStateToStorage();
+      renderAll();
+      showToast(`已将 ${overdueList.length} 项逾期实验一键顺延至今日 (${todayStr})`);
+    });
+
+    // 笛卡尔积模块矩阵池批量生成器
+    function parseCommaList(str) {
+      return str.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+    }
+
+    function computeMatrixCombinations() {
+      const listA = parseCommaList(document.getElementById('matrixDimA').value);
+      const listB = parseCommaList(document.getElementById('matrixDimB').value);
+      const listC = parseCommaList(document.getElementById('matrixDimC').value);
+
+      const safeA = listA.length ? listA : ['DefaultData'];
+      const safeB = listB.length ? listB : ['DefaultModel'];
+      const safeC = listC.length ? listC : ['DefaultSetting'];
+
+      const combos = [];
+      for (const a of safeA) {
+        for (const b of safeB) {
+          for (const c of safeC) {
+            combos.push(`[${a}] × [${b}] × [${c}]`);
+          }
+        }
+      }
+      return combos;
+    }
+
+    function updateMatrixPreview() {
+      const combos = computeMatrixCombinations();
+      const countEl = document.getElementById('matrixPreviewCount');
+      const tagsEl = document.getElementById('matrixPreviewTags');
+      if (!countEl || !tagsEl) return;
+
+      countEl.textContent = `预计生成 ${combos.length} 组正交实验`;
+      tagsEl.innerHTML = combos.slice(0, 3).map(c =>
+        `<span class="px-1.5 py-0.5 rounded bg-white border border-indigo-200 font-mono text-[10px]">${escapeHtml(c)}</span>`
+      ).join('') + (combos.length > 3 ? `<span class="text-[10px] text-indigo-500 font-mono">...等共 ${combos.length} 组</span>` : '');
+    }
+
+    ['matrixDimA', 'matrixDimB', 'matrixDimC'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateMatrixPreview);
+    });
+
+    document.getElementById('btnGenerateMatrix').addEventListener('click', () => {
+      const combos = computeMatrixCombinations();
+      if (combos.length === 0) return;
+
+      const projectId = document.getElementById('matrixProjectSelect').value || (appState.projects[0]?.id || '');
+      const batchName = document.getElementById('matrixBatchName').value.trim() || `矩阵批次_${todayStr}`;
+      const startDate = document.getElementById('matrixStartDate').value || workingDateStr;
+      const dailyQuota = parseInt(document.getElementById('matrixDailyQuota').value, 10) || 3;
+
+      combos.forEach((comboTitle, idx) => {
+        const dayOffset = Math.floor(idx / dailyQuota);
+        const scheduledDate = addDaysToDateStr(startDate, dayOffset);
+        appState.plans.push({
+          id: uid('matrix'),
+          projectId,
+          title: `${comboTitle}`,
+          scheduledDate,
+          category: '消融实验(Ablation)',
+          priority: 'P1',
+          metricResult: '',
+          batchName,
+          completed: false,
+          completedAt: null
+        });
+      });
+
+      saveStateToStorage();
+      renderAll();
+      showToast(`⚡ 已批量生成 ${combos.length} 组正交实验矩阵！`);
+    });
+
+    // 中栏顶部 Tab 切换
+    function switchPlanInputTab(mode) {
+      const formSingle = document.getElementById('formSinglePlan');
+      const panelMatrix = document.getElementById('panelMatrixGenerator');
+      const btnSingle = document.getElementById('tabBtnSinglePlan');
+      const btnMatrix = document.getElementById('tabBtnMatrixGenerator');
+
+      if (mode === 'matrix') {
+        formSingle.classList.add('hidden');
+        panelMatrix.classList.remove('hidden');
+        btnMatrix.className = 'px-2.5 py-1 rounded-md font-medium bg-white text-indigo-700 shadow-sm transition flex items-center gap-1';
+        btnSingle.className = 'px-2.5 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 transition';
+      } else {
+        formSingle.classList.remove('hidden');
+        panelMatrix.classList.add('hidden');
+        btnSingle.className = 'px-2.5 py-1 rounded-md font-medium bg-white text-slate-900 shadow-sm transition';
+        btnMatrix.className = 'px-2.5 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 transition flex items-center gap-1';
+      }
+    }
+
+    document.getElementById('tabBtnSinglePlan').addEventListener('click', () => {
+      activeNavKey = 'plan-single';
+      switchPlanInputTab('single');
+      updateSidebarActiveHighlight();
+    });
+    document.getElementById('tabBtnMatrixGenerator').addEventListener('click', () => {
+      activeNavKey = 'plan-matrix';
+      switchPlanInputTab('matrix');
+      updateSidebarActiveHighlight();
+    });
+
+    // 过滤与搜索事件绑定
+    ['filterPlanStatus', 'filterPlanBatch', 'searchPlanInput'].forEach(id => {
+      document.getElementById(id).addEventListener('input', renderPlanPool);
+    });
+
+    // 每日实验日记自动保存与一键同步今日打卡实验
+    function saveCurrentDiaryFromInputs() {
+      const progress = document.getElementById('diaryProgressInput').value;
+      const blockers = document.getElementById('diaryBlockersInput').value;
+      const nextSteps = document.getElementById('diaryNextStepsInput').value;
+
+      appState.diaries[workingDateStr] = {
+        progress,
+        blockers,
+        nextSteps,
+        updatedAt: new Date().toISOString()
+      };
+
+      saveStateToStorage();
+      renderSidebarBadgesAndTree();
+      renderWeeklyReportMarkdown();
+      document.getElementById('diarySaveStatus').textContent = `已于 ${new Date().toLocaleTimeString()} 实时保存 (${workingDateStr})`;
+    }
+
+    ['diaryProgressInput', 'diaryBlockersInput', 'diaryNextStepsInput'].forEach(id => {
+      document.getElementById(id).addEventListener('input', saveCurrentDiaryFromInputs);
+    });
+
+    document.getElementById('btnAutoFillDiaryFromTasks').addEventListener('click', () => {
+      const doneToday = appState.plans.filter(p => p.scheduledDate === workingDateStr && p.completed);
+      if (doneToday.length === 0) {
+        showToast(`当前日期 (${workingDateStr}) 暂无已打卡完成的实验可同步`);
+        return;
+      }
+      const lines = doneToday.map(p => `• [${p.category}] ${p.title}${p.metricResult ? ` ➔ 结果指标: ${p.metricResult}` : ''}`).join('\n');
+      const progressEl = document.getElementById('diaryProgressInput');
+      progressEl.value = progressEl.value
+        ? `${progressEl.value.trim()}\n${lines}`
+        : `完成当日排期实验汇总：\n${lines}`;
+      saveCurrentDiaryFromInputs();
+      renderDiaryPanel();
+      showToast('已将当日完成的实验及指标同步至日志');
+    });
+
+    // 右栏下部：每日实验日志 vs 自然周组会周报 Tab 切换
+    function switchRightLogTab(mode) {
+      if (mode === 'weekly') {
+        renderWeeklyReportMarkdown();
+        document.getElementById('panelDailyLog').classList.add('hidden');
+        document.getElementById('panelWeeklyReport').classList.remove('hidden');
+        document.getElementById('tabBtnWeeklyReport').className = 'px-2.5 py-1 rounded-md font-medium bg-white text-slate-900 shadow-sm transition';
+        document.getElementById('tabBtnDailyLog').className = 'px-2.5 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 transition';
+      } else {
+        document.getElementById('panelDailyLog').classList.remove('hidden');
+        document.getElementById('panelWeeklyReport').classList.add('hidden');
+        document.getElementById('tabBtnDailyLog').className = 'px-2.5 py-1 rounded-md font-medium bg-white text-slate-900 shadow-sm transition';
+        document.getElementById('tabBtnWeeklyReport').className = 'px-2.5 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 transition';
+      }
+    }
+
+    document.getElementById('tabBtnDailyLog').addEventListener('click', () => {
+      activeNavKey = 'diary';
+      switchRightLogTab('diary');
+      updateSidebarActiveHighlight();
+    });
+
+    document.getElementById('tabBtnWeeklyReport').addEventListener('click', () => {
+      activeNavKey = 'weekly';
+      switchRightLogTab('weekly');
+      updateSidebarActiveHighlight();
+    });
+
+    document.getElementById('btnRefreshWeeklyMd').addEventListener('click', () => {
+      renderWeeklyReportMarkdown();
+      showToast('已重新聚合自然周组会周报');
+    });
+
+    document.getElementById('btnCopyWeeklyMd').addEventListener('click', async () => {
+      const md = document.getElementById('weeklyReportMarkdownOutput').value;
+      try {
+        await navigator.clipboard.writeText(md);
+        showToast('📋 周报 Markdown 已复制到剪贴板！');
+      } catch (e) {
+        document.getElementById('weeklyReportMarkdownOutput').select();
+        document.execCommand('copy');
+        showToast('📋 周报 Markdown 已复制！');
+      }
+    });
+
+    // 工作日期切换与回到真实今日
+    window.switchWorkingDate = function(newDateStr) {
+      if (!newDateStr) return;
+      workingDateStr = newDateStr;
+      document.getElementById('planDateInput').value = workingDateStr;
+      document.getElementById('matrixStartDate').value = workingDateStr;
+      renderAll();
+    };
+
+    document.getElementById('workingDatePicker').addEventListener('change', (e) => {
+      switchWorkingDate(e.target.value);
+    });
+
+    document.getElementById('btnResetToRealToday').addEventListener('click', () => {
+      todayStr = getRealTodayStr();
+      switchWorkingDate(todayStr);
+      showToast(`已回到系统真实今日 (${todayStr})`);
+    });
+
+    /*************************************************************************
+     * 7. 导入/导出本地数据文件 (.json/.txt) 与导出 Markdown 汇报文档 (.md)
+     *************************************************************************/
+    document.getElementById('btnExportJson').addEventListener('click', () => {
+      const dataStr = JSON.stringify(appState, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Research_Plan_Flex_Backup_${todayStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('💾 本地数据备份 JSON 已导出');
+    });
+
+    document.getElementById('inputImportJson').addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          if (!parsed || typeof parsed !== 'object') throw new Error('无效的数据结构');
+          appState = {
+            version: parsed.version || '3.0.0',
+            lastUpdated: new Date().toISOString(),
+            projects: Array.isArray(parsed.projects) ? parsed.projects : [],
+            ideas: Array.isArray(parsed.ideas) ? parsed.ideas : [],
+            plans: Array.isArray(parsed.plans) ? parsed.plans : [],
+            diaries: (parsed.diaries && typeof parsed.diaries === 'object') ? parsed.diaries : {}
+          };
+          saveStateToStorage();
+          renderAll();
+          showToast('🎉 本地科研数据文件导入成功！');
+        } catch (err) {
+          alert('导入文件解析失败，请确认文件是有效的 JSON 格式：' + err.message);
+        } finally {
+          e.target.value = '';
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+    });
+
+    document.getElementById('btnExportMarkdown').addEventListener('click', () => {
+      const mdContent = generateWeeklyMarkdownText();
+      const { mondayStr, sundayStr } = getNaturalWeekRange(workingDateStr);
+      const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `科研组会周报_${mondayStr}_至_${sundayStr}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('📄 科研组会周报 (.md) 已导出下载');
+    });
+
+    document.getElementById('btnBindLocalFile').addEventListener('click', async () => {
+      if (!window.showSaveFilePicker) {
+        alert('当前浏览器环境不支持 File System Access API 本地文件直连，请使用 Chrome / Edge 桌面版，或直接使用右侧的「导入数据 / 备份 JSON」按钮。');
+        return;
+      }
+      try {
+        boundFileHandle = await window.showSaveFilePicker({
+          suggestedName: `Research_Plan_Flex_LiveDB_${todayStr}.json`,
+          types: [{
+            description: 'Research Plan JSON Database',
+            accept: { 'application/json': ['.json'] }
+          }]
+        });
+        document.getElementById('bindFileBtnText').textContent = `已直连: ${boundFileHandle.name}`;
+        await saveStateToStorage(true);
+        showToast(`🔗 已成功绑定本地硬盘文件 ${boundFileHandle.name}，后续修改将实时自动覆写！`);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('绑定本地文件取消或失败:', err);
+        }
+      }
+    });
+
+    /*************************************************************************
+     * 8. 系统启动初始化入口
+     *************************************************************************/
+    function initApp() {
+      todayStr = getRealTodayStr();
+      workingDateStr = todayStr;
+      loadStateFromStorage();
+
+      document.getElementById('planDateInput').value = todayStr;
+      document.getElementById('matrixStartDate').value = todayStr;
+      document.getElementById('projectDeadlineInput').value = addDaysToDateStr(todayStr, 30);
+
+      renderAll();
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
