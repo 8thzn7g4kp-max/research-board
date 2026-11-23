@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Research Board — 极简科研项目记录</title>
+  <title>Research Board — 科研项目记录</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     body {
@@ -18,10 +18,10 @@
 <body class="h-screen flex overflow-hidden">
 
   <!-- 左侧：项目列表 -->
-  <aside class="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
+  <aside class="w-60 bg-white border-r border-slate-200 flex flex-col shrink-0">
     <div class="p-4 border-b border-slate-100">
       <h1 class="font-bold text-base text-slate-900 tracking-tight">Research Board</h1>
-      <p class="text-xs text-slate-400 mt-0.5">极简项目进度与灵感记录</p>
+      <p class="text-xs text-slate-400 mt-0.5">项目节点 · 任务记录 · 灵感</p>
     </div>
 
     <!-- 新建项目 -->
@@ -34,10 +34,10 @@
       </button>
     </form>
 
-    <!-- 项目列表容器 -->
+    <!-- 项目列表 -->
     <div id="projectList" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
 
-    <!-- 底部数据备份 -->
+    <!-- 底部备份 -->
     <div class="p-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
       <button id="btnExport" class="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition">
         导出备份
@@ -49,36 +49,47 @@
     </div>
   </aside>
 
-  <!-- 右侧：当前项目主区域 -->
+  <!-- 右侧：主工作区 -->
   <main class="flex-1 flex flex-col min-w-0 overflow-hidden">
-    <!-- 顶部项目标题栏 -->
-    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0">
-      <div class="min-w-0">
-        <h2 id="currentProjectTitle" class="text-lg font-bold text-slate-900 truncate">请选择或新建一个项目</h2>
+    <!-- 顶部标题栏（支持直接点击改名） -->
+    <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between gap-4 shrink-0">
+      <div id="titleContainer" class="flex items-center gap-2 min-w-0 flex-1">
+        <input id="projectTitleInput" type="text"
+          class="hidden text-lg font-bold text-slate-900 bg-slate-50 border border-indigo-400 rounded-lg px-2.5 py-0.5 focus:outline-none focus:bg-white w-full max-w-md" />
+        <h2 id="currentProjectTitle" title="点击直接修改项目名称"
+          class="text-lg font-bold text-slate-900 truncate cursor-pointer hover:text-indigo-600 transition">
+          请选择或新建一个项目
+        </h2>
+        <button id="btnEditTitle" class="hidden p-1 text-slate-400 hover:text-indigo-600 rounded transition" title="修改项目名称">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+          </svg>
+        </button>
       </div>
-      <div id="projectActions" class="hidden flex items-center gap-2">
-        <button id="btnRenameProject" class="px-2.5 py-1 text-xs text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition">重命名</button>
-        <button id="btnDeleteProject" class="px-2.5 py-1 text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">删除项目</button>
+      <div id="projectActions" class="hidden flex items-center gap-2 shrink-0">
+        <button id="btnDeleteProject" class="px-2.5 py-1 text-xs text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+          删除该项目
+        </button>
       </div>
     </header>
 
-    <!-- 三栏内容区 -->
-    <div id="workspaceContent" class="flex-1 overflow-y-auto p-6 hidden">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto items-start">
+    <!-- 三栏内容区（左3：时间节点，中6：任务规划与记录，右3：突发想法） -->
+    <div id="workspaceContent" class="flex-1 overflow-y-auto p-5 hidden">
+      <div class="grid grid-cols-1 xl:grid-cols-12 gap-5 max-w-[1600px] mx-auto items-start">
 
-        <!-- 1. 重要时间节点 -->
-        <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
+        <!-- 1. 重要时间节点 (3列) -->
+        <section class="xl:col-span-3 bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-bold text-sm text-slate-800">1. 重要时间节点</h3>
             <span id="milestoneCount" class="text-xs text-slate-400 font-mono">0</span>
           </div>
 
           <form id="addMilestoneForm" class="space-y-2 mb-4 pb-4 border-b border-slate-100">
-            <div class="flex gap-2">
+            <div class="flex gap-1.5">
               <input id="milestoneDate" type="date" required
-                class="w-36 px-2 py-1.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-500" />
+                class="w-[126px] px-2 py-1.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-500" />
               <select id="milestoneTag"
-                class="flex-1 px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-500">
+                class="flex-1 min-w-0 px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-500">
                 <option value="投稿 Submit">投稿 Submit</option>
                 <option value="返修 Revise">返修 Revise</option>
                 <option value="截稿 DDL">截稿 DDL</option>
@@ -87,9 +98,9 @@
                 <option value="其他节点">其他节点</option>
               </select>
             </div>
-            <div class="flex gap-2">
-              <input id="milestoneNote" type="text" placeholder="备注（如：投了 CVPR / 收到大修意见）..."
-                class="flex-1 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-500" />
+            <div class="flex gap-1.5">
+              <input id="milestoneNote" type="text" placeholder="备注（如：投了哪个会/大修意见）"
+                class="flex-1 min-w-0 px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-500" />
               <button type="submit"
                 class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shrink-0 transition">
                 记录
@@ -100,38 +111,60 @@
           <div id="milestoneList" class="space-y-3"></div>
         </section>
 
-        <!-- 2. 任务规划 -->
-        <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
+        <!-- 2. 任务规划与过程记录 (6列 - 宽敞主区) -->
+        <section class="xl:col-span-6 bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="font-bold text-sm text-slate-800">2. 任务规划</h3>
-            <span id="taskCount" class="text-xs text-slate-400 font-mono">0/0</span>
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-sm text-slate-800">2. 任务规划与完成记录</h3>
+              <span id="taskCount" class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-mono">0/0</span>
+            </div>
+            <span class="text-[11px] text-slate-400">勾选完成或点「记录」可写实验/过程笔记</span>
           </div>
 
-          <form id="addTaskForm" class="space-y-2 mb-4 pb-4 border-b border-slate-100">
-            <input id="taskTitle" type="text" required placeholder="下一步要做什么..."
-              class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-500" />
-            <div class="flex items-center justify-between gap-2">
-              <input id="taskDue" type="date" title="截止日期（选填）"
-                class="px-2 py-1 text-xs font-mono text-slate-600 bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-500" />
+          <!-- 结构化新建任务表单 -->
+          <form id="addTaskForm" class="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3 mb-4 space-y-2.5">
+            <div class="flex flex-wrap gap-2">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs text-slate-500">计划日期:</span>
+                <input id="taskDate" type="date" required
+                  class="px-2 py-1 text-xs font-mono bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs text-slate-500">方面:</span>
+                <select id="taskCategory"
+                  class="px-2 py-1 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500">
+                  <option value="实验">🧪 实验</option>
+                  <option value="代码/工程">💻 代码/工程</option>
+                  <option value="论文写作">✍️ 论文写作</option>
+                  <option value="文献调研">📚 文献调研</option>
+                  <option value="画图/整理">📊 画图/整理</option>
+                  <option value="其他">📌 其他</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <input id="taskTitle" type="text" required placeholder="具体要做什么？（例：在数据集 A 上跑消融实验，对比不同学习率）"
+                class="flex-1 min-w-0 px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500" />
               <button type="submit"
-                class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shrink-0 transition">
-                添加任务
+                class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg shrink-0 transition">
+                + 添加计划
               </button>
             </div>
           </form>
 
-          <div id="taskList" class="space-y-2"></div>
+          <!-- 任务列表 -->
+          <div id="taskList" class="space-y-3"></div>
         </section>
 
-        <!-- 3. 突发想法 / 以后试试 -->
-        <section class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
+        <!-- 3. 突发想法 (3列) -->
+        <section class="xl:col-span-3 bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-bold text-sm text-slate-800">3. 突发想法（以后试试）</h3>
             <span id="ideaCount" class="text-xs text-slate-400 font-mono">0</span>
           </div>
 
           <form id="addIdeaForm" class="space-y-2 mb-4 pb-4 border-b border-slate-100">
-            <textarea id="ideaContent" rows="2" required placeholder="突然想到的点子、可以试的新方法..."
+            <textarea id="ideaContent" rows="2" required placeholder="突然想到的点子、之后可以试的新思路..."
               class="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-amber-500 resize-none"></textarea>
             <div class="flex justify-end">
               <button type="submit"
@@ -155,6 +188,8 @@
 
   <script>
     const STORAGE_KEY = 'SIMPLE_RESEARCH_BOARD_V1';
+    // 记录哪些任务的“过程记录框”当前是展开的
+    const expandedTaskIds = new Set();
 
     function todayStr() {
       const d = new Date();
@@ -171,7 +206,12 @@
         .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // 初始化数据
+    // 判断该任务是否属于实验类（触发防丢提醒）
+    function isExperimentTask(task) {
+      if (task.category === '实验') return true;
+      return /实验|训练|跑|模型|测试|消融|ablation|train/i.test(task.title || '');
+    }
+
     let state = { projects: [], activeId: null };
 
     function load() {
@@ -179,20 +219,43 @@
       if (raw) {
         try {
           state = JSON.parse(raw);
+          // 兼容旧版数据结构，补齐新字段
+          (state.projects || []).forEach(p => {
+            p.milestones = p.milestones || [];
+            p.ideas = p.ideas || [];
+            p.tasks = (p.tasks || []).map(t => ({
+              id: t.id || uid(),
+              date: t.date || t.due || todayStr(),
+              category: t.category || '实验',
+              title: t.title || '',
+              done: Boolean(t.done),
+              log: t.log || '',
+              resultSaved: Boolean(t.resultSaved)
+            }));
+          });
         } catch (e) { console.error(e); }
       } else {
-        // 首次打开给一个示例项目，方便直观看到效果
         const demoId = uid();
+        const demoTaskId = uid();
+        expandedTaskIds.add(demoTaskId);
         state = {
           activeId: demoId,
           projects: [{
             id: demoId,
-            name: '示例论文项目 A',
+            name: '示例论文项目（点我可改名）',
             milestones: [
               { id: uid(), date: todayStr(), tag: '投稿 Submit', note: '初稿投出' }
             ],
             tasks: [
-              { id: uid(), title: '补两组消融实验', due: '', done: false }
+              {
+                id: demoTaskId,
+                date: todayStr(),
+                category: '实验',
+                title: '补两组消融实验并对比收敛速度',
+                done: false,
+                log: '',
+                resultSaved: false
+              }
             ],
             ideas: [
               { id: uid(), content: '之后可以试试换一个损失函数看效果', date: todayStr() }
@@ -211,7 +274,6 @@
       return state.projects.find(p => p.id === state.activeId) || null;
     }
 
-    // 渲染总控
     function render() {
       renderProjectList();
       const proj = getActiveProject();
@@ -219,11 +281,13 @@
       const empty = document.getElementById('emptyState');
       const actions = document.getElementById('projectActions');
       const titleEl = document.getElementById('currentProjectTitle');
+      const editBtn = document.getElementById('btnEditTitle');
 
       if (!proj) {
         titleEl.textContent = '请选择或新建一个项目';
         workspace.classList.add('hidden');
         actions.classList.add('hidden');
+        editBtn.classList.add('hidden');
         empty.classList.remove('hidden');
         return;
       }
@@ -231,6 +295,7 @@
       titleEl.textContent = proj.name;
       workspace.classList.remove('hidden');
       actions.classList.remove('hidden');
+      editBtn.classList.remove('hidden');
       empty.classList.add('hidden');
 
       renderMilestones(proj);
@@ -246,12 +311,12 @@
       }
       el.innerHTML = state.projects.map(p => {
         const active = p.id === state.activeId;
-        const pendingTasks = p.tasks.filter(t => !t.done).length;
+        const pending = p.tasks.filter(t => !t.done).length;
         return `
           <button onclick="selectProject('${p.id}')"
             class="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center justify-between gap-2 transition ${active ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 hover:bg-slate-100'}">
             <span class="truncate">${esc(p.name)}</span>
-            ${pendingTasks > 0 ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-500 border border-slate-200 shrink-0">${pendingTasks}</span>` : ''}
+            ${pending > 0 ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-500 border border-slate-200 shrink-0">${pending}</span>` : ''}
           </button>
         `;
       }).join('');
@@ -276,12 +341,15 @@
       el.innerHTML = sorted.map(m => `
         <div class="relative pl-4 border-l-2 border-slate-200 group">
           <span class="absolute -left-[5px] top-1.5 w-2 h-2 rounded-full bg-indigo-500"></span>
-          <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center justify-between gap-1">
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-xs font-mono font-semibold text-slate-700">${esc(m.date)}</span>
               <span class="text-[10px] px-1.5 py-0.5 rounded border font-medium ${tagColors[m.tag] || tagColors['其他节点']}">${esc(m.tag)}</span>
             </div>
-            <button onclick="deleteMilestone('${m.id}')" class="opacity-0 group-hover:opacity-100 text-xs text-slate-400 hover:text-rose-600 transition">删除</button>
+            <div class="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 text-[11px] shrink-0 transition">
+              <button onclick="editMilestone('${m.id}')" class="text-slate-400 hover:text-indigo-600">改</button>
+              <button onclick="deleteMilestone('${m.id}')" class="text-slate-400 hover:text-rose-600">删</button>
+            </div>
           </div>
           ${m.note ? `<p class="text-xs text-slate-600 mt-1 leading-relaxed">${esc(m.note)}</p>` : ''}
         </div>
@@ -293,21 +361,87 @@
       const doneCount = proj.tasks.filter(t => t.done).length;
       document.getElementById('taskCount').textContent = `${doneCount}/${proj.tasks.length}`;
       if (proj.tasks.length === 0) {
-        el.innerHTML = `<div class="text-xs text-slate-400 text-center py-6">暂无任务</div>`;
+        el.innerHTML = `<div class="text-xs text-slate-400 text-center py-8 border border-dashed border-slate-200 rounded-xl">暂无任务规划，在上方添加一条计划吧</div>`;
         return;
       }
-      const sorted = [...proj.tasks].sort((a, b) => Number(a.done) - Number(b.done));
-      el.innerHTML = sorted.map(t => `
-        <div class="flex items-start gap-2.5 p-2 rounded-lg border ${t.done ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200'} group">
-          <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}')"
-            class="mt-0.5 w-4 h-4 accent-indigo-600 cursor-pointer shrink-0" />
-          <div class="flex-1 min-w-0">
-            <div class="text-xs ${t.done ? 'line-through text-slate-400' : 'text-slate-800'} break-words">${esc(t.title)}</div>
-            ${t.due ? `<div class="text-[10px] font-mono text-slate-400 mt-0.5">DDL: ${esc(t.due)}</div>` : ''}
+
+      const catColors = {
+        '实验': 'bg-violet-50 text-violet-700 border-violet-200',
+        '代码/工程': 'bg-sky-50 text-sky-700 border-sky-200',
+        '论文写作': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        '文献调研': 'bg-amber-50 text-amber-700 border-amber-200',
+        '画图/整理': 'bg-pink-50 text-pink-700 border-pink-200',
+        '其他': 'bg-slate-100 text-slate-600 border-slate-200'
+      };
+
+      const sorted = [...proj.tasks].sort((a, b) => {
+        if (a.done !== b.done) return Number(a.done) - Number(b.done);
+        return (b.date || '').localeCompare(a.date || '');
+      });
+
+      el.innerHTML = sorted.map(t => {
+        const isExp = isExperimentTask(t);
+        const isExpanded = expandedTaskIds.has(t.id) || (t.log && t.log.trim().length > 0);
+        const needSaveWarning = isExp && !t.resultSaved;
+
+        return `
+          <div class="rounded-xl border transition ${t.done ? 'bg-slate-50/70 border-slate-200/80' : 'bg-white border-slate-200 hover:border-slate-300'} p-3">
+            <!-- 任务头部 -->
+            <div class="flex items-start gap-2.5">
+              <input type="checkbox" ${t.done ? 'checked' : ''} onchange="toggleTask('${t.id}')"
+                class="mt-1 w-4 h-4 accent-indigo-600 cursor-pointer shrink-0" />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">${esc(t.date || '未定日期')}</span>
+                    <span class="text-[11px] px-1.5 py-0.5 rounded border font-medium ${catColors[t.category] || catColors['其他']}">${esc(t.category || '其他')}</span>
+                    ${isExp && t.resultSaved ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">✓ 结果已保存</span>` : ''}
+                  </div>
+                  <div class="flex items-center gap-2 text-[11px] shrink-0">
+                    <button onclick="toggleTaskLog('${t.id}')" class="text-indigo-600 hover:underline font-medium">
+                      ${isExpanded ? '收起记录' : (t.log ? '查看记录' : '+ 写记录')}
+                    </button>
+                    <button onclick="editTask('${t.id}')" class="text-slate-400 hover:text-indigo-600">编辑</button>
+                    <button onclick="deleteTask('${t.id}')" class="text-slate-400 hover:text-rose-600">删除</button>
+                  </div>
+                </div>
+                <div class="text-sm font-medium mt-1.5 break-words ${t.done ? 'line-through text-slate-400' : 'text-slate-800'}">
+                  ${esc(t.title)}
+                </div>
+              </div>
+            </div>
+
+            <!-- 实验防丢提醒条（只要是实验类且未确认保存，就会提醒） -->
+            ${needSaveWarning ? `
+              <div class="mt-2.5 ml-6 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200/90 flex items-center justify-between gap-2 flex-wrap">
+                <span class="text-xs text-amber-800 font-medium">
+                  ⚠️ 实验提醒：实验结果、数据/权重、代码或图表记得保存！
+                </span>
+                <label class="inline-flex items-center gap-1.5 text-xs text-amber-900 font-semibold cursor-pointer select-none shrink-0">
+                  <input type="checkbox" ${t.resultSaved ? 'checked' : ''} onchange="toggleResultSaved('${t.id}')"
+                    class="w-3.5 h-3.5 accent-emerald-600 cursor-pointer" />
+                  <span>已确认保存</span>
+                </label>
+              </div>
+            ` : ''}
+
+            <!-- 过程与完成记录条 -->
+            ${isExpanded ? `
+              <div class="mt-2.5 ml-6">
+                <textarea rows="2"
+                  placeholder="记录执行过程：发现了什么问题？结果指标是多少？下次需要注意什么？（失焦自动保存）"
+                  onblur="updateTaskLog('${t.id}', this.value)"
+                  class="w-full px-2.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:outline-none focus:border-indigo-400 leading-relaxed text-slate-700">${esc(t.log)}</textarea>
+                ${isExp && t.resultSaved ? `
+                  <div class="mt-1 flex justify-end">
+                    <button onclick="toggleResultSaved('${t.id}')" class="text-[10px] text-slate-400 hover:text-amber-600">取消「结果已保存」标记</button>
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
           </div>
-          <button onclick="deleteTask('${t.id}')" class="opacity-0 group-hover:opacity-100 text-xs text-slate-400 hover:text-rose-600 shrink-0 transition">删除</button>
-        </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     function renderIdeas(proj) {
@@ -323,15 +457,60 @@
           <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-amber-200/40 text-[10px]">
             <span class="font-mono text-slate-400">${esc(i.date)}</span>
             <div class="flex items-center gap-2">
-              <button onclick="ideaToTask('${i.id}')" class="text-amber-700 hover:underline font-medium">转为任务</button>
-              <button onclick="deleteIdea('${i.id}')" class="text-slate-400 hover:text-rose-600">删除</button>
+              <button onclick="ideaToTask('${i.id}')" class="text-amber-700 hover:underline font-medium">转任务</button>
+              <button onclick="editIdea('${i.id}')" class="text-slate-400 hover:text-indigo-600">改</button>
+              <button onclick="deleteIdea('${i.id}')" class="text-slate-400 hover:text-rose-600">删</button>
             </div>
           </div>
         </div>
       `).join('');
     }
 
-    // 交互事件
+    // --- 项目名称直接原地编辑 ---
+    function startInlineRename() {
+      const proj = getActiveProject();
+      if (!proj) return;
+      const titleEl = document.getElementById('currentProjectTitle');
+      const inputEl = document.getElementById('projectTitleInput');
+      const editBtn = document.getElementById('btnEditTitle');
+      titleEl.classList.add('hidden');
+      editBtn.classList.add('hidden');
+      inputEl.classList.remove('hidden');
+      inputEl.value = proj.name;
+      inputEl.focus();
+      inputEl.select();
+    }
+
+    function finishInlineRename() {
+      const proj = getActiveProject();
+      const titleEl = document.getElementById('currentProjectTitle');
+      const inputEl = document.getElementById('projectTitleInput');
+      const editBtn = document.getElementById('btnEditTitle');
+      if (proj) {
+        const newName = inputEl.value.trim();
+        if (newName && newName !== proj.name) {
+          proj.name = newName;
+          save();
+        }
+      }
+      inputEl.classList.add('hidden');
+      titleEl.classList.remove('hidden');
+      editBtn.classList.remove('hidden');
+      render();
+    }
+
+    document.getElementById('currentProjectTitle').addEventListener('click', startInlineRename);
+    document.getElementById('btnEditTitle').addEventListener('click', startInlineRename);
+    document.getElementById('projectTitleInput').addEventListener('blur', finishInlineRename);
+    document.getElementById('projectTitleInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') finishInlineRename();
+      if (e.key === 'Escape') {
+        document.getElementById('projectTitleInput').value = getActiveProject()?.name || '';
+        finishInlineRename();
+      }
+    });
+
+    // --- 其他交互 ---
     window.selectProject = (id) => {
       state.activeId = id;
       save();
@@ -351,17 +530,6 @@
       render();
     });
 
-    document.getElementById('btnRenameProject').addEventListener('click', () => {
-      const proj = getActiveProject();
-      if (!proj) return;
-      const newName = prompt('修改项目名称：', proj.name);
-      if (newName && newName.trim()) {
-        proj.name = newName.trim();
-        save();
-        render();
-      }
-    });
-
     document.getElementById('btnDeleteProject').addEventListener('click', () => {
       const proj = getActiveProject();
       if (!proj || !confirm(`确定删除项目「${proj.name}」及其所有记录吗？`)) return;
@@ -371,6 +539,7 @@
       render();
     });
 
+    // 时间节点 CRUD
     document.getElementById('addMilestoneForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const proj = getActiveProject();
@@ -385,6 +554,18 @@
       render();
     });
 
+    window.editMilestone = (id) => {
+      const proj = getActiveProject();
+      const m = proj?.milestones.find(x => x.id === id);
+      if (!m) return;
+      const newNote = prompt(`修改备注（原日期 ${m.date} · ${m.tag}）：`, m.note);
+      if (newNote !== null) {
+        m.note = newNote.trim();
+        save();
+        render();
+      }
+    };
+
     window.deleteMilestone = (id) => {
       const proj = getActiveProject();
       if (!proj) return;
@@ -393,16 +574,17 @@
       render();
     };
 
+    // 任务 CRUD 与记录条
     document.getElementById('addTaskForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const proj = getActiveProject();
       if (!proj) return;
+      const date = document.getElementById('taskDate').value || todayStr();
+      const category = document.getElementById('taskCategory').value;
       const title = document.getElementById('taskTitle').value.trim();
-      const due = document.getElementById('taskDue').value;
       if (!title) return;
-      proj.tasks.push({ id: uid(), title, due, done: false });
+      proj.tasks.push({ id: uid(), date, category, title, done: false, log: '', resultSaved: false });
       document.getElementById('taskTitle').value = '';
-      document.getElementById('taskDue').value = '';
       save();
       render();
     });
@@ -412,18 +594,57 @@
       const task = proj?.tasks.find(t => t.id === id);
       if (!task) return;
       task.done = !task.done;
+      // 勾选完成时自动展开记录框，方便顺手记下完成过程
+      if (task.done) expandedTaskIds.add(id);
       save();
       render();
+    };
+
+    window.toggleTaskLog = (id) => {
+      if (expandedTaskIds.has(id)) expandedTaskIds.delete(id);
+      else expandedTaskIds.add(id);
+      render();
+    };
+
+    window.updateTaskLog = (id, val) => {
+      const proj = getActiveProject();
+      const task = proj?.tasks.find(t => t.id === id);
+      if (!task) return;
+      task.log = val;
+      save();
+    };
+
+    window.toggleResultSaved = (id) => {
+      const proj = getActiveProject();
+      const task = proj?.tasks.find(t => t.id === id);
+      if (!task) return;
+      task.resultSaved = !task.resultSaved;
+      save();
+      render();
+    };
+
+    window.editTask = (id) => {
+      const proj = getActiveProject();
+      const task = proj?.tasks.find(t => t.id === id);
+      if (!task) return;
+      const newTitle = prompt('修改任务内容：', task.title);
+      if (newTitle !== null && newTitle.trim()) {
+        task.title = newTitle.trim();
+        save();
+        render();
+      }
     };
 
     window.deleteTask = (id) => {
       const proj = getActiveProject();
       if (!proj) return;
       proj.tasks = proj.tasks.filter(t => t.id !== id);
+      expandedTaskIds.delete(id);
       save();
       render();
     };
 
+    // 想法 CRUD
     document.getElementById('addIdeaForm').addEventListener('submit', (e) => {
       e.preventDefault();
       const proj = getActiveProject();
@@ -435,6 +656,18 @@
       save();
       render();
     });
+
+    window.editIdea = (id) => {
+      const proj = getActiveProject();
+      const idea = proj?.ideas.find(i => i.id === id);
+      if (!idea) return;
+      const newContent = prompt('修改想法内容：', idea.content);
+      if (newContent !== null && newContent.trim()) {
+        idea.content = newContent.trim();
+        save();
+        render();
+      }
+    };
 
     window.deleteIdea = (id) => {
       const proj = getActiveProject();
@@ -448,7 +681,16 @@
       const proj = getActiveProject();
       const idea = proj?.ideas.find(i => i.id === id);
       if (!idea) return;
-      proj.tasks.push({ id: uid(), title: idea.content, due: '', done: false });
+      const newId = uid();
+      proj.tasks.push({
+        id: newId,
+        date: todayStr(),
+        category: '实验',
+        title: idea.content,
+        done: false,
+        log: '',
+        resultSaved: false
+      });
       save();
       render();
     };
@@ -472,6 +714,7 @@
           if (Array.isArray(parsed.projects)) {
             state = parsed;
             save();
+            load();
             render();
             alert('导入成功');
           }
@@ -485,6 +728,7 @@
 
     // 启动
     document.getElementById('milestoneDate').value = todayStr();
+    document.getElementById('taskDate').value = todayStr();
     load();
     render();
   </script>
